@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: supmeal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - supmeal_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    container_name: supmeal-backend
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: 5432
+    ports:
+      - "${BACKEND_PORT}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  supmeal_db_data:
