@@ -1,7 +1,7 @@
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: supmeal-db
+    container_name: supmeal-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -10,7 +10,7 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - supmeal_db_data:/var/lib/postgresql/data
+      - supmeal_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -34,8 +34,8 @@ services:
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
 
 volumes:
-  supmeal_db_data:
+  supmeal_postgres_data:
