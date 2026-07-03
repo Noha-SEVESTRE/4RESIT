@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import { pool } from "./database/pool";
+import { authRouter } from "./routes/authRoutes";
 
 export const app = express();
 
@@ -33,6 +34,8 @@ app.get("/api/db-health", async (_req, res, next) => {
         next(error);
     }
 });
+
+app.use("/api/auth", authRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected error";
