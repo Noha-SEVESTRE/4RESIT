@@ -1,9 +1,30 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
+import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
 
 type ViewName = "login" | "register" | "dashboard";
+type FormErrors = Record<string, string>;
 
 const currentView = ref<ViewName>("login");
+const currentUser = ref<User | null>(null);
+const token = ref(localStorage.getItem("supmeal_token"));
+const isLoading = ref(false);
+const errorMessage = ref("");
+const infoMessage = ref("");
+const loginErrors = ref<FormErrors>({});
+const registerErrors = ref<FormErrors>({});
+
+const loginForm = ref({
+  email: "",
+  password: ""
+});
+
+const registerForm = ref({
+  displayName: "",
+  email: "",
+  password: "",
+  passwordConfirmation: ""
+});
 
 const stats = [
   {
@@ -56,17 +77,185 @@ const meals = [
   }
 ];
 
-function goToDashboard() {
+function resetMessages() {
+  errorMessage.value = "";
+  infoMessage.value = "";
+  loginErrors.value = {};
+  registerErrors.value = {};
+}
+
+function saveSession(nextToken: string, user: User) {
+  token.value = nextToken;
+  currentUser.value = user;
+  localStorage.setItem("supmeal_token", nextToken);
   currentView.value = "dashboard";
 }
 
 function goToLogin() {
+  resetMessages();
   currentView.value = "login";
 }
 
 function goToRegister() {
+  resetMessages();
   currentView.value = "register";
 }
+
+function logout() {
+  token.value = null;
+  currentUser.value = null;
+  localStorage.removeItem("supmeal_token");
+  goToLogin();
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function applyFieldErrors(target: typeof loginErrors, fieldErrors: FieldErrors) {
+  const nextErrors: FormErrors = {};
+
+  Object.entries(fieldErrors).forEach(([field, messages]) => {
+    if (messages?.[0]) {
+      nextErrors[field] = messages[0];
+    }
+  });
+
+  target.value = nextErrors;
+}
+
+function validateLogin() {
+  const errors: FormErrors = {};
+  const email = loginForm.value.email.trim();
+
+  if (!email) {
+    errors.email = "L'adresse email est obligatoire";
+  } else if (!isValidEmail(email)) {
+    errors.email = "L'adresse email n'est pas valide";
+  }
+
+  if (!loginForm.value.password) {
+    errors.password = "Le mot de passe est obligatoire";
+  }
+
+  loginErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
+}
+
+function validateRegister() {
+  const errors: FormErrors = {};
+  const displayName = registerForm.value.displayName.trim();
+  const email = registerForm.value.email.trim();
+
+  if (!displayName) {
+    errors.displayName = "Le pseudonyme est obligatoire";
+  } else if (displayName.length < 2) {
+    errors.displayName = "Le pseudonyme doit contenir au moins 2 caractères";
+  }
+
+  if (!email) {
+    errors.email = "L'adresse email est obligatoire";
+  } else if (!isValidEmail(email)) {
+    errors.email = "L'adresse email n'est pas valide";
+  }
+
+  if (!registerForm.value.password) {
+    errors.password = "Le mot de passe est obligatoire";
+  } else if (registerForm.value.password.length < 8) {
+    errors.password = "Le mot de passe doit contenir au moins 8 caractères";
+  }
+
+  if (!registerForm.value.passwordConfirmation) {
+    errors.passwordConfirmation = "La confirmation du mot de passe est obligatoire";
+  } else if (registerForm.value.password !== registerForm.value.passwordConfirmation) {
+    errors.passwordConfirmation = "Les mots de passe ne correspondent pas";
+  }
+
+  registerErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
+}
+
+async function submitLogin() {
+  try {
+    resetMessages();
+
+    if (!validateLogin()) {
+      return;
+    }
+
+    isLoading.value = true;
+
+    const response = await loginUser(
+        loginForm.value.email.trim(),
+        loginForm.value.password
+    );
+
+    saveSession(response.token, response.user);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      applyFieldErrors(loginErrors, error.fieldErrors);
+
+      if (!Object.keys(error.fieldErrors).length) {
+        errorMessage.value = error.message;
+      }
+    } else {
+      errorMessage.value = "Connexion impossible pour le moment";
+    }
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function submitRegister() {
+  try {
+    resetMessages();
+
+    if (!validateRegister()) {
+      return;
+    }
+
+    isLoading.value = true;
+
+    const response = await registerUser(
+        registerForm.value.displayName.trim(),
+        registerForm.value.email.trim(),
+        registerForm.value.password
+    );
+
+    saveSession(response.token, response.user);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      applyFieldErrors(registerErrors, error.fieldErrors);
+
+      if (!Object.keys(error.fieldErrors).length) {
+        errorMessage.value = error.message;
+      }
+    } else {
+      errorMessage.value = "Inscription impossible pour le moment";
+    }
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+onMounted(async () => {
+  if (!token.value) {
+    return;
+  }
+
+  try {
+    const response = await getCurrentUser(token.value);
+
+    currentUser.value = response.user;
+    currentView.value = "dashboard";
+  } catch (_error) {
+    localStorage.removeItem("supmeal_token");
+    token.value = null;
+    currentView.value = "login";
+  }
+});
 </script>
 
 <template>
@@ -80,18 +269,25 @@ function goToRegister() {
         </p>
       </div>
 
-      <form class="auth-form" @submit.prevent="goToDashboard">
+      <form class="auth-form" @submit.prevent="submitLogin">
         <label>
           Email
-          <input type="email" placeholder="test@supmeal.fr">
+          <input v-model="loginForm.email" :class="{ 'input-error': loginErrors.email }" type="email" placeholder="user@gmail.fr">
+          <span v-if="loginErrors.email" class="field-error">{{ loginErrors.email }}</span>
         </label>
 
         <label>
           Mot de passe
-          <input type="password" placeholder="Votre mot de passe">
+          <input v-model="loginForm.password" :class="{ 'input-error': loginErrors.password }" type="password" placeholder="Votre mot de passe">
+          <span v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</span>
         </label>
 
-        <button type="submit">Se connecter</button>
+        <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
+        <p v-if="infoMessage" class="auth-info">{{ infoMessage }}</p>
+
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? "Connexion..." : "Se connecter" }}
+        </button>
       </form>
 
       <div class="oauth-section">
@@ -128,28 +324,36 @@ function goToRegister() {
         </p>
       </div>
 
-      <form class="auth-form" @submit.prevent="goToDashboard">
+      <form class="auth-form" @submit.prevent="submitRegister">
         <label>
           Pseudonyme
-          <input type="text" placeholder="Pseudonyme">
+          <input v-model="registerForm.displayName" :class="{ 'input-error': registerErrors.displayName }" type="text" placeholder="Pseudonyme">
+          <span v-if="registerErrors.displayName" class="field-error">{{ registerErrors.displayName }}</span>
         </label>
 
         <label>
           Email
-          <input type="email" placeholder="user@gmail.com">
+          <input v-model="registerForm.email" :class="{ 'input-error': registerErrors.email }" type="email" placeholder="user@gmail.com">
+          <span v-if="registerErrors.email" class="field-error">{{ registerErrors.email }}</span>
         </label>
 
         <label>
           Mot de passe
-          <input type="password" placeholder="Minimum 8 caractères">
+          <input v-model="registerForm.password" :class="{ 'input-error': registerErrors.password }" type="password" placeholder="Minimum 8 caractères">
+          <span v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</span>
         </label>
 
         <label>
           Confirmation du mot de passe
-          <input type="password" placeholder="Confirmez votre mot de passe">
+          <input v-model="registerForm.passwordConfirmation" :class="{ 'input-error': registerErrors.passwordConfirmation }" type="password" placeholder="Confirmez votre mot de passe">
+          <span v-if="registerErrors.passwordConfirmation" class="field-error">{{ registerErrors.passwordConfirmation }}</span>
         </label>
 
-        <button type="submit">Créer mon compte</button>
+        <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
+
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? "Création..." : "Créer mon compte" }}
+        </button>
       </form>
 
       <p class="auth-switch">
@@ -177,7 +381,7 @@ function goToRegister() {
         <a href="#">Paramètres</a>
       </nav>
 
-      <button class="logout-button" type="button" @click="goToLogin">
+      <button class="logout-button" type="button" @click="logout">
         Déconnexion
       </button>
     </aside>
@@ -187,6 +391,9 @@ function goToRegister() {
         <div>
           <p class="eyebrow">SUPMEAL Pro</p>
           <h1>Bienvenue sur votre espace recettes</h1>
+          <p v-if="currentUser" class="user-badge">
+            Connecté en tant que {{ currentUser.displayName }}
+          </p>
         </div>
         <button>Nouvelle recette</button>
       </header>

@@ -8,14 +8,33 @@ import { createToken } from "../utils/token";
 export const authRouter = Router();
 
 const registerSchema = z.object({
-    email: z.string().email().max(255).transform((value) => value.toLowerCase()),
-    password: z.string().min(8).max(120),
-    displayName: z.string().min(2).max(120)
+    email: z.string()
+        .trim()
+        .min(1, "L'adresse email est obligatoire")
+        .email("L'adresse email n'est pas valide")
+        .max(255, "L'adresse email est trop longue")
+        .transform((value) => value.toLowerCase()),
+    password: z.string()
+        .min(1, "Le mot de passe est obligatoire")
+        .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+        .max(120, "Le mot de passe est trop long"),
+    displayName: z.string()
+        .trim()
+        .min(1, "Le pseudonyme est obligatoire")
+        .min(2, "Le pseudonyme doit contenir au moins 2 caractères")
+        .max(120, "Le pseudonyme est trop long")
 });
 
 const loginSchema = z.object({
-    email: z.string().email().max(255).transform((value) => value.toLowerCase()),
-    password: z.string().min(1).max(120)
+    email: z.string()
+        .trim()
+        .min(1, "L'adresse email est obligatoire")
+        .email("L'adresse email n'est pas valide")
+        .max(255, "L'adresse email est trop longue")
+        .transform((value) => value.toLowerCase()),
+    password: z.string()
+        .min(1, "Le mot de passe est obligatoire")
+        .max(120, "Le mot de passe est trop long")
 });
 
 function formatUser(row: any) {
@@ -26,6 +45,13 @@ function formatUser(row: any) {
         dietaryPreferences: row.dietary_preferences,
         defaultPortions: row.default_portions,
         createdAt: row.created_at
+    };
+}
+
+function formatValidationError(error: z.ZodError) {
+    return {
+        message: "Certains champs sont invalides",
+        fieldErrors: error.flatten().fieldErrors
     };
 }
 
@@ -40,7 +66,10 @@ authRouter.post("/register", async (req, res, next) => {
 
         if (existingUser.rowCount) {
             return res.status(409).json({
-                message: "Cette adresse email est déjà utilisée"
+                message: "Cette adresse email est déjà utilisée",
+                fieldErrors: {
+                    email: ["Cette adresse email est déjà utilisée"]
+                }
             });
         }
 
@@ -65,10 +94,7 @@ authRouter.post("/register", async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({
-                message: "Données invalides",
-                errors: error.flatten()
-            });
+            return res.status(400).json(formatValidationError(error));
         }
 
         return next(error);
@@ -88,9 +114,21 @@ authRouter.post("/login", async (req, res, next) => {
 
         const userRow = result.rows[0];
 
-        if (!userRow || !userRow.password_hash) {
+        if (!userRow) {
+            return res.status(404).json({
+                message: "Aucun compte ne correspond à cette adresse email",
+                fieldErrors: {
+                    email: ["Aucun compte ne correspond à cette adresse email"]
+                }
+            });
+        }
+
+        if (!userRow.password_hash) {
             return res.status(401).json({
-                message: "Identifiants incorrects"
+                message: "Ce compte utilise une connexion OAuth2",
+                fieldErrors: {
+                    password: ["Utilisez Google ou GitHub pour vous connecter à ce compte"]
+                }
             });
         }
 
@@ -98,7 +136,10 @@ authRouter.post("/login", async (req, res, next) => {
 
         if (!passwordIsValid) {
             return res.status(401).json({
-                message: "Identifiants incorrects"
+                message: "Mot de passe incorrect",
+                fieldErrors: {
+                    password: ["Mot de passe incorrect"]
+                }
             });
         }
 
@@ -114,10 +155,7 @@ authRouter.post("/login", async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return res.status(400).json({
-                message: "Données invalides",
-                errors: error.flatten()
-            });
+            return res.status(400).json(formatValidationError(error));
         }
 
         return next(error);
@@ -136,8 +174,8 @@ authRouter.get("/me", requireAuth, async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT id, email, display_name, dietary_preferences, default_portions, created_at
-       FROM users
-       WHERE id = $1`,
+             FROM users
+             WHERE id = $1`,
             [authenticatedRequest.user.userId]
         );
 
