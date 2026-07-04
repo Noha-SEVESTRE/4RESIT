@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
+type ViewName = "login" | "register" | "dashboard";
+
+const currentView = ref<ViewName>("login");
+
 const stats = [
   {
     label: "Recettes",
@@ -49,10 +55,111 @@ const meals = [
     meal: "Bowl saumon avocat"
   }
 ];
+
+function goToDashboard() {
+  currentView.value = "dashboard";
+}
+
+function goToLogin() {
+  currentView.value = "login";
+}
+
+function goToRegister() {
+  currentView.value = "register";
+}
 </script>
 
 <template>
-  <div class="app-shell">
+  <main v-if="currentView === 'login'" class="auth-page">
+    <section class="auth-card">
+      <div>
+        <p class="eyebrow">SUPMEAL Pro</p>
+        <h1>Connexion</h1>
+        <p class="auth-description">
+          Connectez-vous pour retrouver vos recettes, vos cookbooks et votre planning de repas.
+        </p>
+      </div>
+
+      <form class="auth-form" @submit.prevent="goToDashboard">
+        <label>
+          Email
+          <input type="email" placeholder="test@supmeal.fr">
+        </label>
+
+        <label>
+          Mot de passe
+          <input type="password" placeholder="Votre mot de passe">
+        </label>
+
+        <button type="submit">Se connecter</button>
+      </form>
+
+      <div class="oauth-section">
+        <div class="separator">
+          <span></span>
+          <p>ou continuer avec</p>
+          <span></span>
+        </div>
+
+        <div class="oauth-buttons">
+          <button class="oauth-button" type="button">
+            Google
+          </button>
+          <button class="oauth-button" type="button">
+            GitHub
+          </button>
+        </div>
+      </div>
+
+      <p class="auth-switch">
+        Pas encore de compte ?
+        <button type="button" @click="goToRegister">Créer un compte</button>
+      </p>
+    </section>
+  </main>
+
+  <main v-else-if="currentView === 'register'" class="auth-page">
+    <section class="auth-card">
+      <div>
+        <p class="eyebrow">SUPMEAL Pro</p>
+        <h1>Inscription</h1>
+        <p class="auth-description">
+          Créez votre compte pour organiser vos recettes personnelles et vos repas de la semaine.
+        </p>
+      </div>
+
+      <form class="auth-form" @submit.prevent="goToDashboard">
+        <label>
+          Pseudonyme
+          <input type="text" placeholder="Pseudonyme">
+        </label>
+
+        <label>
+          Email
+          <input type="email" placeholder="user@gmail.com">
+        </label>
+
+        <label>
+          Mot de passe
+          <input type="password" placeholder="Minimum 8 caractères">
+        </label>
+
+        <label>
+          Confirmation du mot de passe
+          <input type="password" placeholder="Confirmez votre mot de passe">
+        </label>
+
+        <button type="submit">Créer mon compte</button>
+      </form>
+
+      <p class="auth-switch">
+        Déjà inscrit ?
+        <button type="button" @click="goToLogin">Se connecter</button>
+      </p>
+    </section>
+  </main>
+
+  <div v-else class="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-icon">S</div>
@@ -69,6 +176,10 @@ const meals = [
         <a href="#">Planning</a>
         <a href="#">Paramètres</a>
       </nav>
+
+      <button class="logout-button" type="button" @click="goToLogin">
+        Déconnexion
+      </button>
     </aside>
 
     <main class="content">
