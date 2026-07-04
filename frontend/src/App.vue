@@ -1,9 +1,27 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
+import { getCurrentUser, loginUser, registerUser, type User } from "./services/authService";
 
 type ViewName = "login" | "register" | "dashboard";
 
 const currentView = ref<ViewName>("login");
+const currentUser = ref<User | null>(null);
+const token = ref(localStorage.getItem("supmeal_token"));
+const isLoading = ref(false);
+const errorMessage = ref("");
+const infoMessage = ref("");
+
+const loginForm = ref({
+  email: "",
+  password: ""
+});
+
+const registerForm = ref({
+  displayName: "",
+  email: "",
+  password: "",
+  passwordConfirmation: ""
+});
 
 const stats = [
   {
@@ -56,17 +74,91 @@ const meals = [
   }
 ];
 
-function goToDashboard() {
+function resetMessages() {
+  errorMessage.value = "";
+  infoMessage.value = "";
+}
+
+function saveSession(nextToken: string, user: User) {
+  token.value = nextToken;
+  currentUser.value = user;
+  localStorage.setItem("supmeal_token", nextToken);
   currentView.value = "dashboard";
 }
 
 function goToLogin() {
+  resetMessages();
   currentView.value = "login";
 }
 
 function goToRegister() {
+  resetMessages();
   currentView.value = "register";
 }
+
+function logout() {
+  token.value = null;
+  currentUser.value = null;
+  localStorage.removeItem("supmeal_token");
+  goToLogin();
+}
+
+async function submitLogin() {
+  try {
+    resetMessages();
+    isLoading.value = true;
+
+    const response = await loginUser(loginForm.value.email, loginForm.value.password);
+
+    saveSession(response.token, response.user);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Connexion impossible";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function submitRegister() {
+  try {
+    resetMessages();
+
+    if (registerForm.value.password !== registerForm.value.passwordConfirmation) {
+      errorMessage.value = "Les mots de passe ne correspondent pas";
+      return;
+    }
+
+    isLoading.value = true;
+
+    const response = await registerUser(
+        registerForm.value.displayName,
+        registerForm.value.email,
+        registerForm.value.password
+    );
+
+    saveSession(response.token, response.user);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Inscription impossible";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+onMounted(async () => {
+  if (!token.value) {
+    return;
+  }
+
+  try {
+    const response = await getCurrentUser(token.value);
+
+    currentUser.value = response.user;
+    currentView.value = "dashboard";
+  } catch (_error) {
+    localStorage.removeItem("supmeal_token");
+    token.value = null;
+    currentView.value = "login";
+  }
+});
 </script>
 
 <template>
@@ -80,18 +172,23 @@ function goToRegister() {
         </p>
       </div>
 
-      <form class="auth-form" @submit.prevent="goToDashboard">
+      <form class="auth-form" @submit.prevent="submitLogin">
         <label>
           Email
-          <input type="email" placeholder="test@supmeal.fr">
+          <input v-model="loginForm.email" type="email" placeholder="test@supmeal.fr">
         </label>
 
         <label>
           Mot de passe
-          <input type="password" placeholder="Votre mot de passe">
+          <input v-model="loginForm.password" type="password" placeholder="Votre mot de passe">
         </label>
 
-        <button type="submit">Se connecter</button>
+        <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
+        <p v-if="infoMessage" class="auth-info">{{ infoMessage }}</p>
+
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? "Connexion..." : "Se connecter" }}
+        </button>
       </form>
 
       <div class="oauth-section">
@@ -128,28 +225,32 @@ function goToRegister() {
         </p>
       </div>
 
-      <form class="auth-form" @submit.prevent="goToDashboard">
+      <form class="auth-form" @submit.prevent="submitRegister">
         <label>
           Pseudonyme
-          <input type="text" placeholder="Pseudonyme">
+          <input v-model="registerForm.displayName" type="text" placeholder="Pseudonyme">
         </label>
 
         <label>
           Email
-          <input type="email" placeholder="user@gmail.com">
+          <input v-model="registerForm.email" type="email" placeholder="user@gmail.com">
         </label>
 
         <label>
           Mot de passe
-          <input type="password" placeholder="Minimum 8 caractères">
+          <input v-model="registerForm.password" type="password" placeholder="Minimum 8 caractères">
         </label>
 
         <label>
           Confirmation du mot de passe
-          <input type="password" placeholder="Confirmez votre mot de passe">
+          <input v-model="registerForm.passwordConfirmation" type="password" placeholder="Confirmez votre mot de passe">
         </label>
 
-        <button type="submit">Créer mon compte</button>
+        <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
+
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? "Création..." : "Créer mon compte" }}
+        </button>
       </form>
 
       <p class="auth-switch">
@@ -177,7 +278,7 @@ function goToRegister() {
         <a href="#">Paramètres</a>
       </nav>
 
-      <button class="logout-button" type="button" @click="goToLogin">
+      <button class="logout-button" type="button" @click="logout">
         Déconnexion
       </button>
     </aside>
@@ -187,6 +288,9 @@ function goToRegister() {
         <div>
           <p class="eyebrow">SUPMEAL Pro</p>
           <h1>Bienvenue sur votre espace recettes</h1>
+          <p v-if="currentUser" class="user-badge">
+            Connecté en tant que {{ currentUser.displayName }}
+          </p>
         </div>
         <button>Nouvelle recette</button>
       </header>

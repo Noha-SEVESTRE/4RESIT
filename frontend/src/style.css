@@ -380,3 +380,34 @@ h3 {
 .oauth-button:hover {
   border-color: #d97706;
 }
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.auth-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.auth-info {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.user-badge {
+  margin: 10px 0 0;
+  color: #7b6d62;
+  font-size: 15px;
+}
