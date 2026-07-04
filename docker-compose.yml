@@ -38,5 +38,15 @@ services:
       postgres:
         condition: service_healthy
 
+  frontend:
+    container_name: supmeal-frontend
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    depends_on:
+      - backend
+
 volumes:
   supmeal_postgres_data:
