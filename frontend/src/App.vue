@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { getCurrentUser, loginUser, registerUser, type User } from "./services/authService";
+import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
 
 type ViewName = "login" | "register" | "dashboard";
+type FormErrors = Record<string, string>;
 
 const currentView = ref<ViewName>("login");
 const currentUser = ref<User | null>(null);
@@ -10,6 +11,8 @@ const token = ref(localStorage.getItem("supmeal_token"));
 const isLoading = ref(false);
 const errorMessage = ref("");
 const infoMessage = ref("");
+const loginErrors = ref<FormErrors>({});
+const registerErrors = ref<FormErrors>({});
 
 const loginForm = ref({
   email: "",
@@ -77,6 +80,8 @@ const meals = [
 function resetMessages() {
   errorMessage.value = "";
   infoMessage.value = "";
+  loginErrors.value = {};
+  registerErrors.value = {};
 }
 
 function saveSession(nextToken: string, user: User) {
@@ -103,16 +108,101 @@ function logout() {
   goToLogin();
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function applyFieldErrors(target: typeof loginErrors, fieldErrors: FieldErrors) {
+  const nextErrors: FormErrors = {};
+
+  Object.entries(fieldErrors).forEach(([field, messages]) => {
+    if (messages?.[0]) {
+      nextErrors[field] = messages[0];
+    }
+  });
+
+  target.value = nextErrors;
+}
+
+function validateLogin() {
+  const errors: FormErrors = {};
+  const email = loginForm.value.email.trim();
+
+  if (!email) {
+    errors.email = "L'adresse email est obligatoire";
+  } else if (!isValidEmail(email)) {
+    errors.email = "L'adresse email n'est pas valide";
+  }
+
+  if (!loginForm.value.password) {
+    errors.password = "Le mot de passe est obligatoire";
+  }
+
+  loginErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
+}
+
+function validateRegister() {
+  const errors: FormErrors = {};
+  const displayName = registerForm.value.displayName.trim();
+  const email = registerForm.value.email.trim();
+
+  if (!displayName) {
+    errors.displayName = "Le pseudonyme est obligatoire";
+  } else if (displayName.length < 2) {
+    errors.displayName = "Le pseudonyme doit contenir au moins 2 caractères";
+  }
+
+  if (!email) {
+    errors.email = "L'adresse email est obligatoire";
+  } else if (!isValidEmail(email)) {
+    errors.email = "L'adresse email n'est pas valide";
+  }
+
+  if (!registerForm.value.password) {
+    errors.password = "Le mot de passe est obligatoire";
+  } else if (registerForm.value.password.length < 8) {
+    errors.password = "Le mot de passe doit contenir au moins 8 caractères";
+  }
+
+  if (!registerForm.value.passwordConfirmation) {
+    errors.passwordConfirmation = "La confirmation du mot de passe est obligatoire";
+  } else if (registerForm.value.password !== registerForm.value.passwordConfirmation) {
+    errors.passwordConfirmation = "Les mots de passe ne correspondent pas";
+  }
+
+  registerErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
+}
+
 async function submitLogin() {
   try {
     resetMessages();
+
+    if (!validateLogin()) {
+      return;
+    }
+
     isLoading.value = true;
 
-    const response = await loginUser(loginForm.value.email, loginForm.value.password);
+    const response = await loginUser(
+        loginForm.value.email.trim(),
+        loginForm.value.password
+    );
 
     saveSession(response.token, response.user);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Connexion impossible";
+    if (error instanceof ApiError) {
+      applyFieldErrors(loginErrors, error.fieldErrors);
+
+      if (!Object.keys(error.fieldErrors).length) {
+        errorMessage.value = error.message;
+      }
+    } else {
+      errorMessage.value = "Connexion impossible pour le moment";
+    }
   } finally {
     isLoading.value = false;
   }
@@ -122,22 +212,29 @@ async function submitRegister() {
   try {
     resetMessages();
 
-    if (registerForm.value.password !== registerForm.value.passwordConfirmation) {
-      errorMessage.value = "Les mots de passe ne correspondent pas";
+    if (!validateRegister()) {
       return;
     }
 
     isLoading.value = true;
 
     const response = await registerUser(
-        registerForm.value.displayName,
-        registerForm.value.email,
+        registerForm.value.displayName.trim(),
+        registerForm.value.email.trim(),
         registerForm.value.password
     );
 
     saveSession(response.token, response.user);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Inscription impossible";
+    if (error instanceof ApiError) {
+      applyFieldErrors(registerErrors, error.fieldErrors);
+
+      if (!Object.keys(error.fieldErrors).length) {
+        errorMessage.value = error.message;
+      }
+    } else {
+      errorMessage.value = "Inscription impossible pour le moment";
+    }
   } finally {
     isLoading.value = false;
   }
@@ -175,12 +272,14 @@ onMounted(async () => {
       <form class="auth-form" @submit.prevent="submitLogin">
         <label>
           Email
-          <input v-model="loginForm.email" type="email" placeholder="test@supmeal.fr">
+          <input v-model="loginForm.email" :class="{ 'input-error': loginErrors.email }" type="email" placeholder="user@gmail.fr">
+          <span v-if="loginErrors.email" class="field-error">{{ loginErrors.email }}</span>
         </label>
 
         <label>
           Mot de passe
-          <input v-model="loginForm.password" type="password" placeholder="Votre mot de passe">
+          <input v-model="loginForm.password" :class="{ 'input-error': loginErrors.password }" type="password" placeholder="Votre mot de passe">
+          <span v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</span>
         </label>
 
         <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
@@ -228,22 +327,26 @@ onMounted(async () => {
       <form class="auth-form" @submit.prevent="submitRegister">
         <label>
           Pseudonyme
-          <input v-model="registerForm.displayName" type="text" placeholder="Pseudonyme">
+          <input v-model="registerForm.displayName" :class="{ 'input-error': registerErrors.displayName }" type="text" placeholder="Pseudonyme">
+          <span v-if="registerErrors.displayName" class="field-error">{{ registerErrors.displayName }}</span>
         </label>
 
         <label>
           Email
-          <input v-model="registerForm.email" type="email" placeholder="user@gmail.com">
+          <input v-model="registerForm.email" :class="{ 'input-error': registerErrors.email }" type="email" placeholder="user@gmail.com">
+          <span v-if="registerErrors.email" class="field-error">{{ registerErrors.email }}</span>
         </label>
 
         <label>
           Mot de passe
-          <input v-model="registerForm.password" type="password" placeholder="Minimum 8 caractères">
+          <input v-model="registerForm.password" :class="{ 'input-error': registerErrors.password }" type="password" placeholder="Minimum 8 caractères">
+          <span v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</span>
         </label>
 
         <label>
           Confirmation du mot de passe
-          <input v-model="registerForm.passwordConfirmation" type="password" placeholder="Confirmez votre mot de passe">
+          <input v-model="registerForm.passwordConfirmation" :class="{ 'input-error': registerErrors.passwordConfirmation }" type="password" placeholder="Confirmez votre mot de passe">
+          <span v-if="registerErrors.passwordConfirmation" class="field-error">{{ registerErrors.passwordConfirmation }}</span>
         </label>
 
         <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>

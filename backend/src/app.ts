@@ -37,7 +37,6 @@ app.get("/api/db-health", async (_req, res, next) => {
 });
 
 app.use("/api/auth", authRouter);
-app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

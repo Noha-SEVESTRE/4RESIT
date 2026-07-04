@@ -411,3 +411,19 @@ button:disabled {
   color: #7b6d62;
   font-size: 15px;
 }
+
+.auth-form input.input-error {
+  border-color: #dc2626;
+  background: #fff7f7;
+}
+
+.auth-form input.input-error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.14);
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}

@@ -10,6 +10,18 @@ export type User = {
     updatedAt?: string;
 };
 
+export type FieldErrors = Record<string, string[]>;
+
+export class ApiError extends Error {
+    fieldErrors: FieldErrors;
+
+    constructor(message: string, fieldErrors: FieldErrors = {}) {
+        super(message);
+        this.name = "ApiError";
+        this.fieldErrors = fieldErrors;
+    }
+}
+
 type AuthResponse = {
     token: string;
     user: User;
@@ -24,7 +36,10 @@ async function request<T>(path: string, options: RequestInit) {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-        throw new Error(data?.message ?? "Une erreur est survenue");
+        throw new ApiError(
+            data?.message ?? "Une erreur est survenue",
+            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
+        );
     }
 
     return data as T;
