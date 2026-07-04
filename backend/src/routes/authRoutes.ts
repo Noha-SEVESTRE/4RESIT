@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../database/pool";
+import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { hashPassword, verifyPassword } from "../utils/password";
-import { createToken, verifyToken } from "../utils/token";
+import { createToken } from "../utils/token";
 
 export const authRouter = Router();
 
@@ -16,18 +17,6 @@ const loginSchema = z.object({
     email: z.string().email().max(255).transform((value) => value.toLowerCase()),
     password: z.string().min(1).max(120)
 });
-
-function getBearerToken(authorizationHeader: string | undefined) {
-    if (!authorizationHeader) {
-        return null;
-    }
-
-    if (!authorizationHeader.startsWith("Bearer ")) {
-        return null;
-    }
-
-    return authorizationHeader.slice(7);
-}
 
 function formatUser(row: any) {
     return {
@@ -59,8 +48,8 @@ authRouter.post("/register", async (req, res, next) => {
 
         const result = await pool.query(
             `INSERT INTO users (email, password_hash, display_name)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, display_name, dietary_preferences, default_portions, created_at`,
+             VALUES ($1, $2, $3)
+                 RETURNING id, email, display_name, dietary_preferences, default_portions, created_at`,
             [data.email, passwordHash, data.displayName]
         );
 
@@ -92,8 +81,8 @@ authRouter.post("/login", async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT id, email, password_hash, display_name, dietary_preferences, default_portions, created_at
-       FROM users
-       WHERE email = $1`,
+             FROM users
+             WHERE email = $1`,
             [data.email]
         );
 
@@ -135,23 +124,21 @@ authRouter.post("/login", async (req, res, next) => {
     }
 });
 
-authRouter.get("/me", async (req, res, next) => {
+authRouter.get("/me", requireAuth, async (req, res, next) => {
     try {
-        const token = getBearerToken(req.headers.authorization);
+        const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!token) {
+        if (!authenticatedRequest.user) {
             return res.status(401).json({
-                message: "Token manquant"
+                message: "Utilisateur non authentifié"
             });
         }
-
-        const payload = verifyToken(token);
 
         const result = await pool.query(
             `SELECT id, email, display_name, dietary_preferences, default_portions, created_at
        FROM users
        WHERE id = $1`,
-            [payload.userId]
+            [authenticatedRequest.user.userId]
         );
 
         const userRow = result.rows[0];
