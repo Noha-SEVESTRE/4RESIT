@@ -28,8 +28,19 @@ const recipeParamsSchema = z.object({
     id: z.string().uuid("L'identifiant de la recette est invalide")
 });
 
+const listRecipesQuerySchema = z.object({
+    q: z.string().trim().optional(),
+    tag: z.string().trim().optional(),
+    ingredient: z.string().trim().optional(),
+    maxTotalTime: z.coerce.number().int().min(0).max(2880).optional(),
+    maxPreparationTime: z.coerce.number().int().min(0).max(1440).optional(),
+    maxCookingTime: z.coerce.number().int().min(0).max(1440).optional(),
+    minPortions: z.coerce.number().int().min(1).max(50).optional(),
+    favorite: z.enum(["true", "false"]).optional()
+});
+
 function formatRecipe(row: any) {
-    return {
+    const recipe: any = {
         id: row.id,
         title: row.title,
         description: row.description,
@@ -41,6 +52,16 @@ function formatRecipe(row: any) {
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
+
+    if (row.tags !== undefined) {
+        recipe.tags = row.tags ?? [];
+    }
+
+    if (row.is_favorite !== undefined) {
+        recipe.isFavorite = row.is_favorite;
+    }
+
+    return recipe;
 }
 
 async function getRecipeDetails(recipeId: string) {
@@ -109,18 +130,134 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
             });
         }
 
+        const query = listRecipesQuerySchema.parse(req.query);
+        const values: unknown[] = [authenticatedRequest.user.userId];
+        const conditions = ["r.owner_id = $1"];
+        let index = 2;
+
+        if (query.q) {
+            values.push(`%${query.q}%`);
+            conditions.push(
+                `(r.title ILIKE $${index}
+          OR r.description ILIKE $${index}
+          OR EXISTS (
+            SELECT 1
+            FROM recipe_tags search_tags
+            WHERE search_tags.recipe_id = r.id AND search_tags.name ILIKE $${index}
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM recipe_ingredients search_ingredients
+            WHERE search_ingredients.recipe_id = r.id AND search_ingredients.name ILIKE $${index}
+          ))`
+            );
+            index++;
+        }
+
+        if (query.tag) {
+            values.push(`%${query.tag}%`);
+            conditions.push(
+                `EXISTS (
+          SELECT 1
+          FROM recipe_tags filter_tags
+          WHERE filter_tags.recipe_id = r.id AND filter_tags.name ILIKE $${index}
+        )`
+            );
+            index++;
+        }
+
+        if (query.ingredient) {
+            values.push(`%${query.ingredient}%`);
+            conditions.push(
+                `EXISTS (
+          SELECT 1
+          FROM recipe_ingredients filter_ingredients
+          WHERE filter_ingredients.recipe_id = r.id AND filter_ingredients.name ILIKE $${index}
+        )`
+            );
+            index++;
+        }
+
+        if (query.maxTotalTime !== undefined) {
+            values.push(query.maxTotalTime);
+            conditions.push("(r.preparation_time + r.cooking_time) <= $" + index);
+            index++;
+        }
+
+        if (query.maxPreparationTime !== undefined) {
+            values.push(query.maxPreparationTime);
+            conditions.push("r.preparation_time <= $" + index);
+            index++;
+        }
+
+        if (query.maxCookingTime !== undefined) {
+            values.push(query.maxCookingTime);
+            conditions.push("r.cooking_time <= $" + index);
+            index++;
+        }
+
+        if (query.minPortions !== undefined) {
+            values.push(query.minPortions);
+            conditions.push("r.portions >= $" + index);
+            index++;
+        }
+
+        if (query.favorite === "true") {
+            conditions.push(
+                `EXISTS (
+          SELECT 1
+          FROM recipe_favorites favorites_filter
+          WHERE favorites_filter.recipe_id = r.id AND favorites_filter.user_id = $1
+        )`
+            );
+        }
+
+        if (query.favorite === "false") {
+            conditions.push(
+                `NOT EXISTS (
+          SELECT 1
+          FROM recipe_favorites favorites_filter
+          WHERE favorites_filter.recipe_id = r.id AND favorites_filter.user_id = $1
+        )`
+            );
+        }
+
         const result = await pool.query(
-            `SELECT id, title, description, preparation_time, cooking_time, portions, image_url, source, created_at, updated_at
-             FROM recipes
-             WHERE owner_id = $1
-             ORDER BY created_at DESC`,
-            [authenticatedRequest.user.userId]
+            `SELECT r.id,
+              r.title,
+              r.description,
+              r.preparation_time,
+              r.cooking_time,
+              r.portions,
+              r.image_url,
+              r.source,
+              r.created_at,
+              r.updated_at,
+              COALESCE(array_agg(DISTINCT rt.name) FILTER (WHERE rt.name IS NOT NULL), '{}') AS tags,
+              EXISTS (
+                SELECT 1
+                FROM recipe_favorites rf
+                WHERE rf.recipe_id = r.id AND rf.user_id = $1
+              ) AS is_favorite
+       FROM recipes r
+       LEFT JOIN recipe_tags rt ON rt.recipe_id = r.id
+       WHERE ${conditions.join(" AND ")}
+       GROUP BY r.id
+       ORDER BY r.created_at DESC`,
+            values
         );
 
         return res.status(200).json({
             recipes: result.rows.map(formatRecipe)
         });
     } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Filtres de recherche invalides",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
         return next(error);
     }
 });
