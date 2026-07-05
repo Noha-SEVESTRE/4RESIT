@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { pool } from "./database/pool";
 import { authRouter } from "./routes/authRoutes";
 import { userRouter } from "./routes/userRoutes";
+import { recipeRouter } from "./routes/recipeRoutes";
 
 export const app = express();
 
@@ -38,6 +39,7 @@ app.get("/api/db-health", async (_req, res, next) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
+app.use("/api/recipes", recipeRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected error";
