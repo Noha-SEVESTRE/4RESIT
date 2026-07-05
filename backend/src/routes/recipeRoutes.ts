@@ -212,6 +212,164 @@ recipeRouter.post("/", requireAuth, async (req, res, next) => {
     }
 });
 
+recipeRouter.put("/:id", requireAuth, async (req, res, next) => {
+    const client = await pool.connect();
+
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const params = recipeParamsSchema.parse(req.params);
+        const data = createRecipeSchema.parse(req.body);
+
+        await client.query("BEGIN");
+
+        const recipeResult = await client.query(
+            `UPDATE recipes
+       SET title = $1,
+           description = $2,
+           preparation_time = $3,
+           cooking_time = $4,
+           portions = $5,
+           image_url = $6,
+           source = $7,
+           updated_at = now()
+       WHERE id = $8 AND owner_id = $9
+       RETURNING id`,
+            [
+                data.title,
+                data.description ?? null,
+                data.preparationTime,
+                data.cookingTime,
+                data.portions,
+                data.imageUrl ?? null,
+                data.source ?? null,
+                params.id,
+                authenticatedRequest.user.userId
+            ]
+        );
+
+        if (!recipeResult.rows[0]) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Recette introuvable"
+            });
+        }
+
+        await client.query(
+            "DELETE FROM recipe_ingredients WHERE recipe_id = $1",
+            [params.id]
+        );
+
+        await client.query(
+            "DELETE FROM recipe_steps WHERE recipe_id = $1",
+            [params.id]
+        );
+
+        await client.query(
+            "DELETE FROM recipe_tags WHERE recipe_id = $1",
+            [params.id]
+        );
+
+        for (const [index, ingredient] of data.ingredients.entries()) {
+            await client.query(
+                `INSERT INTO recipe_ingredients (recipe_id, name, quantity, unit, position)
+         VALUES ($1, $2, $3, $4, $5)`,
+                [
+                    params.id,
+                    ingredient.name,
+                    ingredient.quantity ?? null,
+                    ingredient.unit ?? null,
+                    index + 1
+                ]
+            );
+        }
+
+        for (const [index, step] of data.steps.entries()) {
+            await client.query(
+                `INSERT INTO recipe_steps (recipe_id, instruction, position)
+         VALUES ($1, $2, $3)`,
+                [params.id, step, index + 1]
+            );
+        }
+
+        for (const tag of data.tags ?? []) {
+            await client.query(
+                `INSERT INTO recipe_tags (recipe_id, name)
+         VALUES ($1, $2)`,
+                [params.id, tag]
+            );
+        }
+
+        await client.query("COMMIT");
+
+        const recipe = await getRecipeDetails(params.id);
+
+        return res.status(200).json({
+            recipe
+        });
+    } catch (error) {
+        await client.query("ROLLBACK");
+
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Certains champs sont invalides",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
+        return next(error);
+    } finally {
+        client.release();
+    }
+});
+
+recipeRouter.delete("/:id", requireAuth, async (req, res, next) => {
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const params = recipeParamsSchema.parse(req.params);
+
+        const result = await pool.query(
+            `DELETE FROM recipes
+       WHERE id = $1 AND owner_id = $2
+       RETURNING id`,
+            [params.id, authenticatedRequest.user.userId]
+        );
+
+        if (!result.rows[0]) {
+            return res.status(404).json({
+                message: "Recette introuvable"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Recette supprimée"
+        });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Identifiant de recette invalide",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
+        return next(error);
+    }
+});
+
 recipeRouter.get("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
