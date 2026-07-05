@@ -7,6 +7,7 @@ import { pool } from "./database/pool";
 import { authRouter } from "./routes/authRoutes";
 import { userRouter } from "./routes/userRoutes";
 import { recipeRouter } from "./routes/recipeRoutes";
+import { mealPlanRouter } from "./routes/mealPlanRoutes";
 
 export const app = express();
 
@@ -40,6 +41,7 @@ app.get("/api/db-health", async (_req, res, next) => {
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/recipes", recipeRouter);
+app.use("/api/meal-plans", mealPlanRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected error";
