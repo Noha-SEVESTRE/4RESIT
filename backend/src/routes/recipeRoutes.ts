@@ -370,6 +370,113 @@ recipeRouter.delete("/:id", requireAuth, async (req, res, next) => {
     }
 });
 
+recipeRouter.get("/favorites", requireAuth, async (req, res, next) => {
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT r.id, r.title, r.description, r.preparation_time, r.cooking_time, r.portions, r.image_url, r.source, r.created_at, r.updated_at
+       FROM recipe_favorites rf
+       JOIN recipes r ON r.id = rf.recipe_id
+       WHERE rf.user_id = $1
+       ORDER BY rf.created_at DESC`,
+            [authenticatedRequest.user.userId]
+        );
+
+        return res.status(200).json({
+            recipes: result.rows.map(formatRecipe)
+        });
+    } catch (error) {
+        return next(error);
+    }
+});
+
+recipeRouter.post("/:id/favorite", requireAuth, async (req, res, next) => {
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const params = recipeParamsSchema.parse(req.params);
+
+        const recipeResult = await pool.query(
+            `SELECT id
+       FROM recipes
+       WHERE id = $1 AND owner_id = $2`,
+            [params.id, authenticatedRequest.user.userId]
+        );
+
+        if (!recipeResult.rows[0]) {
+            return res.status(404).json({
+                message: "Recette introuvable"
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO recipe_favorites (user_id, recipe_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, recipe_id) DO NOTHING`,
+            [authenticatedRequest.user.userId, params.id]
+        );
+
+        return res.status(200).json({
+            message: "Recette ajoutée aux favoris"
+        });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Identifiant de recette invalide",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
+        return next(error);
+    }
+});
+
+recipeRouter.delete("/:id/favorite", requireAuth, async (req, res, next) => {
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const params = recipeParamsSchema.parse(req.params);
+
+        await pool.query(
+            `DELETE FROM recipe_favorites
+       WHERE user_id = $1 AND recipe_id = $2`,
+            [authenticatedRequest.user.userId, params.id]
+        );
+
+        return res.status(200).json({
+            message: "Recette retirée des favoris"
+        });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Identifiant de recette invalide",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
+        return next(error);
+    }
+});
+
 recipeRouter.get("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
