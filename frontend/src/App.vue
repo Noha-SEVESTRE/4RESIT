@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
+import RecipeList from "./components/RecipeList.vue";
 
 type ViewName = "login" | "register" | "dashboard";
 type FormErrors = Record<string, string>;
@@ -30,12 +31,12 @@ const stats = [
   {
     label: "Recettes",
     value: "24",
-    detail: "6 ajoutées ce mois-ci"
+    detail: "Recettes personnelles"
   },
   {
     label: "Cookbooks",
     value: "3",
-    detail: "2 partagés"
+    detail: "Espaces partagés"
   },
   {
     label: "Repas planifiés",
@@ -44,36 +45,18 @@ const stats = [
   }
 ];
 
-const recipes = [
-  {
-    title: "Risotto aux champignons",
-    tag: "Végétarien",
-    time: "35 min"
-  },
-  {
-    title: "Poulet citron et herbes",
-    tag: "Protéiné",
-    time: "45 min"
-  },
-  {
-    title: "Bowl saumon avocat",
-    tag: "Rapide",
-    time: "20 min"
-  }
-];
-
 const meals = [
   {
     day: "Lundi",
-    meal: "Risotto aux champignons"
+    meal: "Omelette fromage"
   },
   {
     day: "Mardi",
-    meal: "Poulet citron et herbes"
+    meal: "Recette à planifier"
   },
   {
     day: "Mercredi",
-    meal: "Bowl saumon avocat"
+    meal: "Recette à planifier"
   }
 ];
 
@@ -106,6 +89,11 @@ function logout() {
   currentUser.value = null;
   localStorage.removeItem("supmeal_token");
   goToLogin();
+}
+
+function showOAuthMessage(provider: string) {
+  resetMessages();
+  infoMessage.value = `La connexion ${provider} sera ajoutée dans une prochaine étape.`;
 }
 
 function isValidEmail(email: string) {
@@ -298,10 +286,10 @@ onMounted(async () => {
         </div>
 
         <div class="oauth-buttons">
-          <button class="oauth-button" type="button">
+          <button class="oauth-button" type="button" @click="showOAuthMessage('Google')">
             Google
           </button>
-          <button class="oauth-button" type="button">
+          <button class="oauth-button" type="button" @click="showOAuthMessage('GitHub')">
             GitHub
           </button>
         </div>
@@ -416,27 +404,9 @@ onMounted(async () => {
         </article>
       </section>
 
+      <RecipeList />
+
       <section class="dashboard-grid">
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Recettes</p>
-              <h3>Dernières recettes</h3>
-            </div>
-            <a href="#">Voir tout</a>
-          </div>
-
-          <div class="list">
-            <div v-for="recipe in recipes" :key="recipe.title" class="list-item">
-              <div>
-                <strong>{{ recipe.title }}</strong>
-                <span>{{ recipe.tag }}</span>
-              </div>
-              <p>{{ recipe.time }}</p>
-            </div>
-          </div>
-        </article>
-
         <article class="panel">
           <div class="panel-header">
             <div>
