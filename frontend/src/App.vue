@@ -4,6 +4,7 @@ import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, ty
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
 import type { Recipe } from "./services/recipeService";
+import MealPlanPanel from "./components/MealPlanPanel.vue";
 
 type ViewName = "login" | "register" | "dashboard";
 type FormErrors = Record<string, string>;
@@ -47,21 +48,6 @@ const stats = [
     label: "Repas planifiés",
     value: "12",
     detail: "Cette semaine"
-  }
-];
-
-const meals = [
-  {
-    day: "Lundi",
-    meal: "Omelette fromage"
-  },
-  {
-    day: "Mardi",
-    meal: "Recette à planifier"
-  },
-  {
-    day: "Mercredi",
-    meal: "Recette à planifier"
   }
 ];
 
@@ -430,24 +416,7 @@ onMounted(async () => {
       <RecipeList :key="recipeListKey" @edit="openRecipeForm" />
 
       <section class="dashboard-grid">
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Planning</p>
-              <h3>Repas prévus</h3>
-            </div>
-            <a href="#">Modifier</a>
-          </div>
-
-          <div class="list">
-            <div v-for="meal in meals" :key="meal.day" class="list-item">
-              <div>
-                <strong>{{ meal.day }}</strong>
-                <span>{{ meal.meal }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
+        <MealPlanPanel :key="recipeListKey" />
       </section>
     </main>
   </div>
