@@ -109,7 +109,7 @@ onMounted(loadRecipes);
       <input v-model="maxTotalTime" type="number" min="0" placeholder="Temps max" />
 
       <label class="favorite-filter">
-        <input v-model="onlyFavorites" type="checkbox" />
+        <input v-model="onlyFavorites" type="checkbox" @change="loadRecipes" />
         Favoris uniquement
       </label>
 
