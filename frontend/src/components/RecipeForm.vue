@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { createRecipe } from "../services/recipeService";
+import { computed, ref, watch } from "vue";
+import { createRecipe, updateRecipe, type Recipe } from "../services/recipeService";
+
+const props = defineProps<{
+  recipe?: Recipe | null;
+}>();
 
 const emit = defineEmits<{
-  created: [];
+  saved: [];
   cancelled: [];
 }>();
 
@@ -19,6 +23,8 @@ const tagsText = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 
+const isEditMode = computed(() => Boolean(props.recipe));
+
 function getStoredToken() {
   return (
       localStorage.getItem("token") ??
@@ -27,6 +33,18 @@ function getStoredToken() {
       localStorage.getItem("supmeal_token") ??
       ""
   );
+}
+
+function fillForm(recipe?: Recipe | null) {
+  title.value = recipe?.title ?? "";
+  description.value = recipe?.description ?? "";
+  preparationTime.value = recipe?.preparationTime ?? 10;
+  cookingTime.value = recipe?.cookingTime ?? 15;
+  portions.value = recipe?.portions ?? 2;
+  source.value = recipe?.source ?? "Création personnelle";
+  ingredientsText.value = recipe?.ingredients?.map((ingredient) => ingredient.name).join("\n") ?? "";
+  stepsText.value = recipe?.steps?.map((step) => step.instruction).join("\n") ?? "";
+  tagsText.value = recipe?.tags?.join(", ") ?? "";
 }
 
 function parseIngredients() {
@@ -85,7 +103,7 @@ async function submitRecipe() {
   errorMessage.value = "";
 
   try {
-    await createRecipe(token, {
+    const payload = {
       title: title.value.trim(),
       description: description.value.trim(),
       preparationTime: Number(preparationTime.value),
@@ -96,23 +114,37 @@ async function submitRecipe() {
       ingredients,
       steps,
       tags: parseTags()
-    });
+    };
 
-    emit("created");
+    if (props.recipe) {
+      await updateRecipe(token, props.recipe.id, payload);
+    } else {
+      await createRecipe(token, payload);
+    }
+
+    emit("saved");
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de créer la recette";
+    errorMessage.value = error instanceof Error ? error.message : "Impossible d'enregistrer la recette";
   } finally {
     isLoading.value = false;
   }
 }
+
+watch(
+    () => props.recipe,
+    (recipe) => {
+      fillForm(recipe);
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
   <section class="recipe-form-card">
     <div class="recipe-form-header">
       <div>
-        <p class="section-label">Nouvelle recette</p>
-        <h2>Ajouter une recette</h2>
+        <p class="section-label">{{ isEditMode ? "Modification" : "Nouvelle recette" }}</p>
+        <h2>{{ isEditMode ? "Modifier la recette" : "Ajouter une recette" }}</h2>
       </div>
 
       <button class="secondary-button" type="button" @click="emit('cancelled')">
@@ -173,7 +205,7 @@ async function submitRecipe() {
       </p>
 
       <button type="submit" :disabled="isLoading">
-        {{ isLoading ? "Création..." : "Créer la recette" }}
+        {{ isLoading ? "Enregistrement..." : isEditMode ? "Enregistrer les modifications" : "Créer la recette" }}
       </button>
     </form>
   </section>

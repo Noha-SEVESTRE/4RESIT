@@ -2,10 +2,16 @@
 import { computed, onMounted, ref } from "vue";
 import {
   addRecipeToFavorites,
+  deleteRecipe,
+  getRecipe,
   getRecipes,
   removeRecipeFromFavorites,
   type Recipe
 } from "../services/recipeService";
+
+const emit = defineEmits<{
+  edit: [recipe: Recipe];
+}>();
 
 const recipes = ref<Recipe[]>([]);
 const search = ref("");
@@ -74,6 +80,44 @@ async function toggleFavorite(recipe: Recipe) {
     await loadRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de modifier le favori";
+  }
+}
+
+async function editRecipe(recipeId: string) {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  try {
+    const response = await getRecipe(token, recipeId);
+    emit("edit", response.recipe);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger la recette";
+  }
+}
+
+async function removeRecipe(recipe: Recipe) {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  const confirmed = window.confirm(`Supprimer la recette "${recipe.title}" ?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await deleteRecipe(token, recipe.id);
+    await loadRecipes();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer la recette";
   }
 }
 
@@ -157,6 +201,16 @@ onMounted(loadRecipes);
           <span v-for="recipeTag in recipe.tags" :key="recipeTag">
             {{ recipeTag }}
           </span>
+        </div>
+
+        <div class="recipe-actions">
+          <button type="button" @click="editRecipe(recipe.id)">
+            Modifier
+          </button>
+
+          <button class="danger-button" type="button" @click="removeRecipe(recipe)">
+            Supprimer
+          </button>
         </div>
       </article>
     </div>
@@ -315,6 +369,27 @@ onMounted(loadRecipes);
   padding: 6px 10px;
   font-size: 13px;
   font-weight: 800;
+}
+
+.recipe-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.recipe-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.recipe-actions .danger-button {
+  background: #fff1f2;
+  color: #be123c;
 }
 
 @media (max-width: 900px) {

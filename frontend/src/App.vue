@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
+import type { Recipe } from "./services/recipeService";
 
 type ViewName = "login" | "register" | "dashboard";
 type FormErrors = Record<string, string>;
@@ -17,6 +18,7 @@ const loginErrors = ref<FormErrors>({});
 const registerErrors = ref<FormErrors>({});
 const showRecipeForm = ref(false);
 const recipeListKey = ref(0);
+const selectedRecipe = ref<Recipe | null>(null);
 
 const loginForm = ref({
   email: "",
@@ -168,9 +170,15 @@ function validateRegister() {
   return Object.keys(errors).length === 0;
 }
 
-function handleRecipeCreated() {
+function handleRecipeSaved() {
   showRecipeForm.value = false;
+  selectedRecipe.value = null;
   recipeListKey.value++;
+}
+
+function openRecipeForm(recipe: Recipe | null = null) {
+  selectedRecipe.value = recipe;
+  showRecipeForm.value = true;
 }
 
 async function submitLogin() {
@@ -391,7 +399,7 @@ onMounted(async () => {
             Connecté en tant que {{ currentUser.displayName }}
           </p>
         </div>
-        <button type="button" @click="showRecipeForm = true">Nouvelle recette</button>
+        <button type="button" @click="openRecipeForm()">Nouvelle recette</button>
       </header>
 
       <section class="hero-card">
@@ -414,11 +422,12 @@ onMounted(async () => {
 
       <RecipeForm
           v-if="showRecipeForm"
-          @created="handleRecipeCreated"
+          :recipe="selectedRecipe"
+          @saved="handleRecipeSaved"
           @cancelled="showRecipeForm = false"
       />
 
-      <RecipeList :key="recipeListKey" />
+      <RecipeList :key="recipeListKey" @edit="openRecipeForm" />
 
       <section class="dashboard-grid">
         <article class="panel">

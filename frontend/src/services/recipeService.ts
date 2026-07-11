@@ -15,6 +15,8 @@ export type Recipe = {
     updatedAt: string;
     tags?: string[];
     isFavorite?: boolean;
+    ingredients?: RecipeIngredient[];
+    steps?: RecipeStep[];
 };
 
 export type RecipeFilters = {
@@ -45,6 +47,20 @@ export type CreateRecipePayload = {
     ingredients: RecipeIngredientInput[];
     steps: string[];
     tags?: string[];
+};
+
+export type RecipeIngredient = {
+    id: string;
+    name: string;
+    quantity: string | null;
+    unit: string | null;
+    position: number;
+};
+
+export type RecipeStep = {
+    id: string;
+    instruction: string;
+    position: number;
 };
 
 type RecipeResponse = {
@@ -148,5 +164,34 @@ export function createRecipe(token: string, payload: CreateRecipePayload) {
             Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(payload)
+    });
+}
+
+export function getRecipe(token: string, recipeId: string) {
+    return request<RecipeResponse>(`/recipes/${recipeId}`, {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function updateRecipe(token: string, recipeId: string, payload: CreateRecipePayload) {
+    return request<RecipeResponse>(`/recipes/${recipeId}`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+export function deleteRecipe(token: string, recipeId: string) {
+    return request<MessageResponse>(`/recipes/${recipeId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
     });
 }
