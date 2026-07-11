@@ -1,0 +1,118 @@
+import { ApiError } from "./authService";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+
+export type Recipe = {
+    id: string;
+    title: string;
+    description: string | null;
+    preparationTime: number;
+    cookingTime: number;
+    portions: number;
+    imageUrl: string | null;
+    source: string | null;
+    createdAt: string;
+    updatedAt: string;
+    tags?: string[];
+    isFavorite?: boolean;
+};
+
+export type RecipeFilters = {
+    q?: string;
+    tag?: string;
+    ingredient?: string;
+    maxTotalTime?: number;
+    maxPreparationTime?: number;
+    maxCookingTime?: number;
+    minPortions?: number;
+    favorite?: "true" | "false";
+};
+
+type RecipesResponse = {
+    recipes: Recipe[];
+};
+
+type MessageResponse = {
+    message: string;
+};
+
+async function request<T>(path: string, options: RequestInit) {
+    const response = await fetch(`${API_BASE_URL}${path}`, options);
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+        throw new ApiError(
+            data?.message ?? "Une erreur est survenue",
+            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
+        );
+    }
+
+    return data as T;
+}
+
+function buildQuery(filters: RecipeFilters) {
+    const params = new URLSearchParams();
+
+    if (filters.q) {
+        params.set("q", filters.q);
+    }
+
+    if (filters.tag) {
+        params.set("tag", filters.tag);
+    }
+
+    if (filters.ingredient) {
+        params.set("ingredient", filters.ingredient);
+    }
+
+    if (filters.maxTotalTime !== undefined) {
+        params.set("maxTotalTime", String(filters.maxTotalTime));
+    }
+
+    if (filters.maxPreparationTime !== undefined) {
+        params.set("maxPreparationTime", String(filters.maxPreparationTime));
+    }
+
+    if (filters.maxCookingTime !== undefined) {
+        params.set("maxCookingTime", String(filters.maxCookingTime));
+    }
+
+    if (filters.minPortions !== undefined) {
+        params.set("minPortions", String(filters.minPortions));
+    }
+
+    if (filters.favorite) {
+        params.set("favorite", filters.favorite);
+    }
+
+    const query = params.toString();
+
+    return query ? `?${query}` : "";
+}
+
+export function getRecipes(token: string, filters: RecipeFilters = {}) {
+    return request<RecipesResponse>(`/recipes${buildQuery(filters)}`, {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function addRecipeToFavorites(token: string, recipeId: string) {
+    return request<MessageResponse>(`/recipes/${recipeId}/favorite`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function removeRecipeFromFavorites(token: string, recipeId: string) {
+    return request<MessageResponse>(`/recipes/${recipeId}/favorite`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}

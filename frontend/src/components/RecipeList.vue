@@ -1,0 +1,331 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import {
+  addRecipeToFavorites,
+  getRecipes,
+  removeRecipeFromFavorites,
+  type Recipe
+} from "../services/recipeService";
+
+const recipes = ref<Recipe[]>([]);
+const search = ref("");
+const tag = ref("");
+const ingredient = ref("");
+const maxTotalTime = ref("");
+const onlyFavorites = ref(false);
+const isLoading = ref(false);
+const errorMessage = ref("");
+
+const hasRecipes = computed(() => recipes.value.length > 0);
+
+function getStoredToken() {
+  return (
+      localStorage.getItem("token") ??
+      localStorage.getItem("authToken") ??
+      localStorage.getItem("supmealToken") ??
+      localStorage.getItem("supmeal_token") ??
+      ""
+  );
+}
+
+async function loadRecipes() {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  isLoading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const response = await getRecipes(token, {
+      q: search.value || undefined,
+      tag: tag.value || undefined,
+      ingredient: ingredient.value || undefined,
+      maxTotalTime: maxTotalTime.value ? Number(maxTotalTime.value) : undefined,
+      favorite: onlyFavorites.value ? "true" : undefined
+    });
+
+    recipes.value = response.recipes;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function toggleFavorite(recipe: Recipe) {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  try {
+    if (recipe.isFavorite) {
+      await removeRecipeFromFavorites(token, recipe.id);
+    } else {
+      await addRecipeToFavorites(token, recipe.id);
+    }
+
+    await loadRecipes();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de modifier le favori";
+  }
+}
+
+function resetFilters() {
+  search.value = "";
+  tag.value = "";
+  ingredient.value = "";
+  maxTotalTime.value = "";
+  onlyFavorites.value = false;
+  loadRecipes();
+}
+
+onMounted(loadRecipes);
+</script>
+
+<template>
+  <section class="recipe-list">
+    <div class="recipe-list-header">
+      <div>
+        <p class="section-label">Mes recettes</p>
+        <h2>Recettes enregistrées</h2>
+      </div>
+
+      <button class="secondary-button" type="button" @click="loadRecipes">
+        Actualiser
+      </button>
+    </div>
+
+    <form class="recipe-filters" @submit.prevent="loadRecipes">
+      <input v-model="search" type="text" placeholder="Rechercher une recette" />
+      <input v-model="tag" type="text" placeholder="Tag" />
+      <input v-model="ingredient" type="text" placeholder="Ingrédient" />
+      <input v-model="maxTotalTime" type="number" min="0" placeholder="Temps max" />
+
+      <label class="favorite-filter">
+        <input v-model="onlyFavorites" type="checkbox" />
+        Favoris uniquement
+      </label>
+
+      <button type="submit">
+        Filtrer
+      </button>
+
+      <button class="secondary-button" type="button" @click="resetFilters">
+        Réinitialiser
+      </button>
+    </form>
+
+    <p v-if="errorMessage" class="recipe-error">
+      {{ errorMessage }}
+    </p>
+
+    <p v-if="isLoading" class="recipe-info">
+      Chargement des recettes...
+    </p>
+
+    <p v-else-if="!hasRecipes" class="recipe-info">
+      Aucune recette trouvée.
+    </p>
+
+    <div v-else class="recipe-grid">
+      <article v-for="recipe in recipes" :key="recipe.id" class="recipe-card">
+        <div class="recipe-card-top">
+          <h3>{{ recipe.title }}</h3>
+
+          <button class="favorite-button" type="button" @click="toggleFavorite(recipe)">
+            {{ recipe.isFavorite ? "★" : "☆" }}
+          </button>
+        </div>
+
+        <p class="recipe-description">
+          {{ recipe.description || "Aucune description" }}
+        </p>
+
+        <div class="recipe-meta">
+          <span>{{ recipe.preparationTime + recipe.cookingTime }} min</span>
+          <span>{{ recipe.portions }} portion{{ recipe.portions > 1 ? "s" : "" }}</span>
+        </div>
+
+        <div v-if="recipe.tags?.length" class="recipe-tags">
+          <span v-for="recipeTag in recipe.tags" :key="recipeTag">
+            {{ recipeTag }}
+          </span>
+        </div>
+      </article>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.recipe-list {
+  display: grid;
+  gap: 24px;
+}
+
+.recipe-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-label {
+  margin: 0 0 4px;
+  color: #f97316;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+}
+
+.recipe-list h2 {
+  margin: 0;
+}
+
+.recipe-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.recipe-filters input {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.recipe-filters button,
+.secondary-button {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f97316;
+  color: white;
+}
+
+.secondary-button {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.favorite-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.favorite-filter input {
+  width: auto;
+}
+
+.recipe-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff7f7;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.recipe-info {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.recipe-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  padding: 20px;
+  background: white;
+  display: grid;
+  gap: 14px;
+}
+
+.recipe-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recipe-card h3 {
+  margin: 0;
+}
+
+.favorite-button {
+  border: 0;
+  background: #fff7ed;
+  color: #f97316;
+  border-radius: 999px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+.recipe-description {
+  margin: 0;
+  color: #6b7280;
+}
+
+.recipe-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.recipe-meta span {
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recipe-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-tags span {
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .recipe-filters,
+  .recipe-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recipe-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>
