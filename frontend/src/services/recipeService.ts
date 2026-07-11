@@ -28,6 +28,29 @@ export type RecipeFilters = {
     favorite?: "true" | "false";
 };
 
+export type RecipeIngredientInput = {
+    name: string;
+    quantity?: string;
+    unit?: string;
+};
+
+export type CreateRecipePayload = {
+    title: string;
+    description?: string;
+    preparationTime: number;
+    cookingTime: number;
+    portions: number;
+    imageUrl?: string;
+    source?: string;
+    ingredients: RecipeIngredientInput[];
+    steps: string[];
+    tags?: string[];
+};
+
+type RecipeResponse = {
+    recipe: Recipe;
+};
+
 type RecipesResponse = {
     recipes: Recipe[];
 };
@@ -114,5 +137,16 @@ export function removeRecipeFromFavorites(token: string, recipeId: string) {
         headers: {
             Authorization: `Bearer ${token}`
         }
+    });
+}
+
+export function createRecipe(token: string, payload: CreateRecipePayload) {
+    return request<RecipeResponse>("/recipes", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
     });
 }
