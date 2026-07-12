@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
@@ -8,9 +8,11 @@ import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
 
 type ViewName = "login" | "register" | "dashboard";
+type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
 type FormErrors = Record<string, string>;
 
 const currentView = ref<ViewName>("login");
+const currentPage = ref<PageName>("dashboard");
 const currentUser = ref<User | null>(null);
 const token = ref(localStorage.getItem("supmeal_token"));
 const isLoading = ref(false);
@@ -52,6 +54,46 @@ const stats = [
   }
 ];
 
+const pageTitle = computed(() => {
+  if (currentPage.value === "dashboard") {
+    return "Bienvenue sur votre espace recettes";
+  }
+
+  if (currentPage.value === "recipes") {
+    return "Mes recettes";
+  }
+
+  if (currentPage.value === "planning") {
+    return "Planning des repas";
+  }
+
+  if (currentPage.value === "cookbooks") {
+    return "Cookbooks partagés";
+  }
+
+  return "Paramètres";
+});
+
+const pageDescription = computed(() => {
+  if (currentPage.value === "dashboard") {
+    return "Retrouvez un aperçu rapide de votre espace SUPMEAL.";
+  }
+
+  if (currentPage.value === "recipes") {
+    return "Créez, recherchez, modifiez et organisez vos recettes personnelles.";
+  }
+
+  if (currentPage.value === "planning") {
+    return "Planifiez vos recettes sur les différents repas de la semaine.";
+  }
+
+  if (currentPage.value === "cookbooks") {
+    return "Gérez vos cookbooks, leurs membres et les recettes partagées.";
+  }
+
+  return "Gérez les préférences de votre compte.";
+});
+
 function resetMessages() {
   errorMessage.value = "";
   infoMessage.value = "";
@@ -64,6 +106,7 @@ function saveSession(nextToken: string, user: User) {
   currentUser.value = user;
   localStorage.setItem("supmeal_token", nextToken);
   currentView.value = "dashboard";
+  currentPage.value = "dashboard";
 }
 
 function goToLogin() {
@@ -79,6 +122,9 @@ function goToRegister() {
 function logout() {
   token.value = null;
   currentUser.value = null;
+  currentPage.value = "dashboard";
+  showRecipeForm.value = false;
+  selectedRecipe.value = null;
   localStorage.removeItem("supmeal_token");
   goToLogin();
 }
@@ -86,6 +132,30 @@ function logout() {
 function showOAuthMessage(provider: string) {
   resetMessages();
   infoMessage.value = `La connexion ${provider} sera ajoutée dans une prochaine étape.`;
+}
+
+function setCurrentPage(page: PageName) {
+  currentPage.value = page;
+
+  if (page !== "recipes") {
+    closeRecipeForm();
+  }
+}
+
+function closeRecipeForm() {
+  showRecipeForm.value = false;
+  selectedRecipe.value = null;
+}
+
+function handleRecipeSaved() {
+  closeRecipeForm();
+  recipeListKey.value++;
+}
+
+function openRecipeForm(recipe: Recipe | null = null) {
+  currentPage.value = "recipes";
+  selectedRecipe.value = recipe;
+  showRecipeForm.value = true;
 }
 
 function isValidEmail(email: string) {
@@ -155,17 +225,6 @@ function validateRegister() {
   registerErrors.value = errors;
 
   return Object.keys(errors).length === 0;
-}
-
-function handleRecipeSaved() {
-  showRecipeForm.value = false;
-  selectedRecipe.value = null;
-  recipeListKey.value++;
-}
-
-function openRecipeForm(recipe: Recipe | null = null) {
-  selectedRecipe.value = recipe;
-  showRecipeForm.value = true;
 }
 
 async function submitLogin() {
@@ -241,10 +300,12 @@ onMounted(async () => {
 
     currentUser.value = response.user;
     currentView.value = "dashboard";
+    currentPage.value = "dashboard";
   } catch (_error) {
     localStorage.removeItem("supmeal_token");
     token.value = null;
     currentView.value = "login";
+    currentPage.value = "dashboard";
   }
 });
 </script>
@@ -365,11 +426,25 @@ onMounted(async () => {
       </div>
 
       <nav class="navigation">
-        <a class="active" href="#">Tableau de bord</a>
-        <a href="#">Recettes</a>
-        <a href="#">Cookbooks</a>
-        <a href="#">Planning</a>
-        <a href="#">Paramètres</a>
+        <a href="#" :class="{ active: currentPage === 'dashboard' }" @click.prevent="setCurrentPage('dashboard')">
+          Tableau de bord
+        </a>
+
+        <a href="#" :class="{ active: currentPage === 'recipes' }" @click.prevent="setCurrentPage('recipes')">
+          Recettes
+        </a>
+
+        <a href="#" :class="{ active: currentPage === 'cookbooks' }" @click.prevent="setCurrentPage('cookbooks')">
+          Cookbooks
+        </a>
+
+        <a href="#" :class="{ active: currentPage === 'planning' }" @click.prevent="setCurrentPage('planning')">
+          Planning
+        </a>
+
+        <a href="#" :class="{ active: currentPage === 'settings' }" @click.prevent="setCurrentPage('settings')">
+          Paramètres
+        </a>
       </nav>
 
       <button class="logout-button" type="button" @click="logout">
@@ -381,46 +456,108 @@ onMounted(async () => {
       <header class="topbar">
         <div>
           <p class="eyebrow">SUPMEAL Pro</p>
-          <h1>Bienvenue sur votre espace recettes</h1>
+          <h1>{{ pageTitle }}</h1>
+          <p class="user-badge">
+            {{ pageDescription }}
+          </p>
           <p v-if="currentUser" class="user-badge">
             Connecté en tant que {{ currentUser.displayName }}
           </p>
         </div>
-        <button type="button" @click="openRecipeForm()">Nouvelle recette</button>
+
+        <button v-if="currentPage === 'recipes'" type="button" @click="openRecipeForm()">
+          Nouvelle recette
+        </button>
       </header>
 
-      <section class="hero-card">
-        <div>
-          <p class="eyebrow">Organisation culinaire</p>
-          <h2>Planifiez vos repas et partagez vos recettes facilement.</h2>
-          <p>
-            Gérez vos recettes personnelles, créez des cookbooks collaboratifs et préparez vos menus de la semaine depuis une seule interface.
-          </p>
-        </div>
+      <section v-if="currentPage === 'dashboard'" class="dashboard-home">
+        <section class="hero-card">
+          <div>
+            <p class="eyebrow">Organisation culinaire</p>
+            <h2>Planifiez vos repas et partagez vos recettes facilement.</h2>
+            <p>
+              Gérez vos recettes personnelles, créez des cookbooks collaboratifs et préparez vos menus de la semaine depuis une seule interface.
+            </p>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <article v-for="stat in stats" :key="stat.label" class="stat-card">
+            <span>{{ stat.label }}</span>
+            <strong>{{ stat.value }}</strong>
+            <p>{{ stat.detail }}</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Recettes</p>
+                <h3>Gérer mes recettes</h3>
+              </div>
+              <a href="#" @click.prevent="setCurrentPage('recipes')">Ouvrir</a>
+            </div>
+            <p>
+              Ajoutez, modifiez, filtrez et organisez vos recettes personnelles.
+            </p>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Planning</p>
+                <h3>Planifier mes repas</h3>
+              </div>
+              <a href="#" @click.prevent="setCurrentPage('planning')">Ouvrir</a>
+            </div>
+            <p>
+              Associez vos recettes à des dates et types de repas.
+            </p>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Cookbooks</p>
+                <h3>Partager des recettes</h3>
+              </div>
+              <a href="#" @click.prevent="setCurrentPage('cookbooks')">Ouvrir</a>
+            </div>
+            <p>
+              Créez des espaces partagés avec des membres et des rôles.
+            </p>
+          </article>
+        </section>
       </section>
 
-      <section class="stats-grid">
-        <article v-for="stat in stats" :key="stat.label" class="stat-card">
-          <span>{{ stat.label }}</span>
-          <strong>{{ stat.value }}</strong>
-          <p>{{ stat.detail }}</p>
-        </article>
+      <section v-else-if="currentPage === 'recipes'" class="page-section">
+        <RecipeForm
+            v-if="showRecipeForm"
+            :recipe="selectedRecipe"
+            @saved="handleRecipeSaved"
+            @cancelled="closeRecipeForm"
+        />
+
+        <RecipeList :key="recipeListKey" @edit="openRecipeForm" />
       </section>
 
-      <RecipeForm
-          v-if="showRecipeForm"
-          :recipe="selectedRecipe"
-          @saved="handleRecipeSaved"
-          @cancelled="showRecipeForm = false"
-      />
-
-      <RecipeList :key="recipeListKey" @edit="openRecipeForm" />
-
-      <section class="dashboard-grid">
+      <section v-else-if="currentPage === 'planning'" class="dashboard-grid">
         <MealPlanPanel :key="recipeListKey" />
       </section>
 
-      <CookbookPanel :key="recipeListKey" />
+      <section v-else-if="currentPage === 'cookbooks'" class="page-section">
+        <CookbookPanel :key="recipeListKey" />
+      </section>
+
+      <section v-else class="page-section">
+        <section class="hero-card">
+          <div>
+            <p class="eyebrow">Paramètres</p>
+            <h2>Paramètres du compte</h2>
+          </div>
+        </section>
+      </section>
     </main>
   </div>
 </template>
