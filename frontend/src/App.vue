@@ -5,6 +5,7 @@ import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
 import type { Recipe } from "./services/recipeService";
 import MealPlanPanel from "./components/MealPlanPanel.vue";
+import CookbookPanel from "./components/CookbookPanel.vue";
 
 type ViewName = "login" | "register" | "dashboard";
 type FormErrors = Record<string, string>;
@@ -418,6 +419,8 @@ onMounted(async () => {
       <section class="dashboard-grid">
         <MealPlanPanel :key="recipeListKey" />
       </section>
+
+      <CookbookPanel :key="recipeListKey" />
     </main>
   </div>
 </template>
