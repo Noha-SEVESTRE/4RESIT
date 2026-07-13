@@ -8,6 +8,7 @@ import {
   removeRecipeFromFavorites,
   type Recipe
 } from "../services/recipeService";
+import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
 
 const emit = defineEmits<{
   edit: [recipe: Recipe];
@@ -21,6 +22,7 @@ const maxTotalTime = ref("");
 const onlyFavorites = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref("");
+const openedComments = ref<string | null>(null);
 
 const hasRecipes = computed(() => recipes.value.length > 0);
 
@@ -32,6 +34,10 @@ function getStoredToken() {
       localStorage.getItem("supmeal_token") ??
       ""
   );
+}
+
+function toggleComments(recipeId: string) {
+  openedComments.value = openedComments.value === recipeId ? null : recipeId;
 }
 
 async function loadRecipes() {
@@ -204,6 +210,10 @@ onMounted(loadRecipes);
         </div>
 
         <div class="recipe-actions">
+          <button type="button" @click="toggleComments(recipe.id)">
+            Commentaires
+          </button>
+
           <button type="button" @click="editRecipe(recipe.id)">
             Modifier
           </button>
@@ -212,6 +222,11 @@ onMounted(loadRecipes);
             Supprimer
           </button>
         </div>
+
+        <RecipeCommentsPanel
+            v-if="openedComments === recipe.id"
+            :recipe-id="recipe.id"
+        />
       </article>
     </div>
   </section>

@@ -14,6 +14,7 @@ import {
   type CookbookMember,
   type CookbookRecipe
 } from "../services/cookbookService";
+import CookbookMessagesPanel from "./CookbookMessagesPanel.vue";
 
 const cookbooks = ref<Cookbook[]>([]);
 const selectedCookbook = ref<Cookbook | null>(null);
@@ -355,9 +356,9 @@ onMounted(async () => {
               <div>
                 <strong>{{ recipe.title }}</strong>
                 <span>
-                  {{ recipe.preparationTime + recipe.cookingTime }} min
-                  <template v-if="recipe.owner"> · {{ recipe.owner.displayName }}</template>
-                </span>
+            {{ recipe.preparationTime + recipe.cookingTime }} min
+            <template v-if="recipe.owner"> · {{ recipe.owner.displayName }}</template>
+          </span>
               </div>
 
               <button
@@ -374,6 +375,10 @@ onMounted(async () => {
               Aucune recette dans ce cookbook.
             </p>
           </div>
+        </div>
+
+        <div class="cookbook-block">
+          <CookbookMessagesPanel :cookbook-id="selectedCookbook.id" />
         </div>
       </article>
     </div>
