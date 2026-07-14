@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from "vue";
 import {
   addRecipeToFavorites,
   deleteRecipe,
+  exportRecipe,
   getRecipe,
   getRecipes,
+  importRecipe,
   removeRecipeFromFavorites,
+  type ExportedRecipe,
   type Recipe
 } from "../services/recipeService";
 import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
@@ -23,6 +26,7 @@ const onlyFavorites = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref("");
 const openedComments = ref<string | null>(null);
+const importInput = ref<HTMLInputElement | null>(null);
 
 const hasRecipes = computed(() => recipes.value.length > 0);
 
@@ -38,6 +42,71 @@ function getStoredToken() {
 
 function toggleComments(recipeId: string) {
   openedComments.value = openedComments.value === recipeId ? null : recipeId;
+}
+
+function buildExportFileName(recipe: Recipe) {
+  return `${recipe.title.toLowerCase().replaceAll(" ", "-")}-supmeal.json`;
+}
+
+function downloadJsonFile(fileName: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function openImportFile() {
+  importInput.value?.click();
+}
+
+async function exportCurrentRecipe(recipe: Recipe) {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  try {
+    const exportedRecipe = await exportRecipe(token, recipe.id);
+    downloadJsonFile(buildExportFileName(recipe), exportedRecipe);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible d'exporter la recette";
+  }
+}
+
+async function importRecipeFile(event: Event) {
+  const token = getStoredToken();
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const content = await file.text();
+    const payload = JSON.parse(content) as ExportedRecipe;
+
+    await importRecipe(token, payload);
+    input.value = "";
+    await loadRecipes();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible d'importer la recette";
+  }
 }
 
 async function loadRecipes() {
@@ -147,9 +216,23 @@ onMounted(loadRecipes);
         <h2>Recettes enregistrées</h2>
       </div>
 
-      <button class="secondary-button" type="button" @click="loadRecipes">
-        Actualiser
-      </button>
+      <div class="recipe-header-actions">
+        <input
+            ref="importInput"
+            type="file"
+            accept="application/json"
+            class="hidden-file-input"
+            @change="importRecipeFile"
+        >
+
+        <button class="secondary-button" type="button" @click="openImportFile">
+          Importer
+        </button>
+
+        <button class="secondary-button" type="button" @click="loadRecipes">
+          Actualiser
+        </button>
+      </div>
     </div>
 
     <form class="recipe-filters" @submit.prevent="loadRecipes">
@@ -212,6 +295,10 @@ onMounted(loadRecipes);
         <div class="recipe-actions">
           <button type="button" @click="toggleComments(recipe.id)">
             Commentaires
+          </button>
+
+          <button type="button" @click="exportCurrentRecipe(recipe)">
+            Exporter
           </button>
 
           <button type="button" @click="editRecipe(recipe.id)">
@@ -417,5 +504,15 @@ onMounted(loadRecipes);
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+.recipe-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hidden-file-input {
+  display: none;
 }
 </style>

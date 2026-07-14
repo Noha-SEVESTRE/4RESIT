@@ -63,6 +63,24 @@ export type RecipeStep = {
     position: number;
 };
 
+export type ExportedRecipe = {
+    type: "SUPMEAL_RECIPE_EXPORT";
+    version: number;
+    exportedAt: string;
+    recipe: {
+        title: string;
+        description: string;
+        preparationTime: number;
+        cookingTime: number;
+        portions: number;
+        imageUrl: string;
+        source: string;
+        ingredients: RecipeIngredientInput[];
+        steps: string[];
+        tags: string[];
+    };
+};
+
 type RecipeResponse = {
     recipe: Recipe;
 };
@@ -73,6 +91,14 @@ type RecipesResponse = {
 
 type MessageResponse = {
     message: string;
+};
+
+type ImportRecipeResponse = {
+    message: string;
+    recipe: {
+        id: string;
+        title: string;
+    };
 };
 
 async function request<T>(path: string, options: RequestInit) {
@@ -193,5 +219,25 @@ export function deleteRecipe(token: string, recipeId: string) {
         headers: {
             Authorization: `Bearer ${token}`
         }
+    });
+}
+
+export function exportRecipe(token: string, recipeId: string) {
+    return request<ExportedRecipe>(`/recipes/${recipeId}/export`, {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
+
+export function importRecipe(token: string, payload: ExportedRecipe) {
+    return request<ImportRecipeResponse>("/recipes/import", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
     });
 }
