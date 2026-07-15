@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { ApiError, getCurrentUser, loginUser, registerUser, type FieldErrors, type User } from "./services/authService";
+import { ApiError, getCurrentUser, loginUser, registerUser, startGitHubLogin, type FieldErrors, type User } from "./services/authService";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
 import type { Recipe } from "./services/recipeService";
@@ -291,6 +291,30 @@ async function submitRegister() {
 }
 
 onMounted(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const oauthToken = params.get("token");
+  const oauthStatus = params.get("oauth");
+
+  if (oauthStatus === "missing_email") {
+    errorMessage.value = "Votre compte GitHub ne fournit pas d'adresse email vérifiée.";
+    currentView.value = "login";
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
+
+  if (oauthStatus === "missing_code") {
+    errorMessage.value = "Connexion GitHub interrompue.";
+    currentView.value = "login";
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
+
+  if (oauthToken) {
+    localStorage.setItem("supmeal_token", oauthToken);
+    token.value = oauthToken;
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   if (!token.value) {
     return;
   }
@@ -353,7 +377,7 @@ onMounted(async () => {
           <button class="oauth-button" type="button" @click="showOAuthMessage('Google')">
             Google
           </button>
-          <button class="oauth-button" type="button" @click="showOAuthMessage('GitHub')">
+          <button class="oauth-button" type="button" @click="startGitHubLogin">
             GitHub
           </button>
         </div>

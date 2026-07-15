@@ -80,3 +80,7 @@ export function getCurrentUser(token: string) {
         }
     });
 }
+
+export function startGitHubLogin() {
+    window.location.href = `${API_BASE_URL}/auth/github`;
+}
