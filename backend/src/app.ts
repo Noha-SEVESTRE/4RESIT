@@ -11,6 +11,7 @@ import { mealPlanRouter } from "./routes/mealPlanRoutes";
 import { cookbookRouter } from "./routes/cookbookRoutes";
 import { discussionRouter } from "./routes/discussionRoutes";
 import { recipeImportExportRouter } from "./routes/recipeImportExportRoutes";
+import { oauthRouter } from "./routes/oauthRoutes";
 
 export const app = express();
 
@@ -48,6 +49,7 @@ app.use("/api/meal-plans", mealPlanRouter);
 app.use("/api/cookbooks", cookbookRouter);
 app.use("/api", discussionRouter);
 app.use("/api/recipes", recipeImportExportRouter);
+app.use("/api/auth", oauthRouter);
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected error";
