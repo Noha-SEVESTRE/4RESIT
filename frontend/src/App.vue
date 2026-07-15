@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { ApiError, getCurrentUser, loginUser, registerUser, startGitHubLogin, type FieldErrors, type User } from "./services/authService";
+import { ApiError, getCurrentUser, loginUser, registerUser, startGitHubLogin, startGoogleLogin, type FieldErrors, type User } from "./services/authService";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
 import type { Recipe } from "./services/recipeService";
@@ -127,11 +127,6 @@ function logout() {
   selectedRecipe.value = null;
   localStorage.removeItem("supmeal_token");
   goToLogin();
-}
-
-function showOAuthMessage(provider: string) {
-  resetMessages();
-  infoMessage.value = `La connexion ${provider} sera ajoutée dans une prochaine étape.`;
 }
 
 function setCurrentPage(page: PageName) {
@@ -374,7 +369,7 @@ onMounted(async () => {
         </div>
 
         <div class="oauth-buttons">
-          <button class="oauth-button" type="button" @click="showOAuthMessage('Google')">
+          <button class="oauth-button" type="button" @click="startGoogleLogin">
             Google
           </button>
           <button class="oauth-button" type="button" @click="startGitHubLogin">
