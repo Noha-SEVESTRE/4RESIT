@@ -11,15 +11,33 @@ const emit = defineEmits<{
   cancelled: [];
 }>();
 
+type IngredientFormRow = {
+  name: string;
+  quantity: string;
+  unit: string;
+};
+
 const title = ref("");
 const description = ref("");
 const preparationTime = ref(10);
 const cookingTime = ref(15);
 const portions = ref(2);
+const imageUrl = ref("");
+const imageInput = ref<HTMLInputElement | null>(null);
+const imageError = ref("");
 const source = ref("Création personnelle");
-const ingredientsText = ref("");
+const ingredients = ref<IngredientFormRow[]>([
+  {
+    name: "",
+    quantity: "",
+    unit: ""
+  }
+]);
 const stepsText = ref("");
 const tagsText = ref("");
+const cuisineType = ref("");
+const dietType = ref("");
+const difficulty = ref("");
 const isLoading = ref(false);
 const errorMessage = ref("");
 
@@ -35,28 +53,142 @@ function getStoredToken() {
   );
 }
 
+function getTagValue(prefix: string, tags?: string[]) {
+  const tag = tags?.find((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));
+
+  return tag?.replace(prefix, "").trim() ?? "";
+}
+
+function getFreeTags(tags?: string[]) {
+  return tags
+      ?.filter((tag) => !tag.toLowerCase().startsWith("cuisine:"))
+      .filter((tag) => !tag.toLowerCase().startsWith("régime:"))
+      .filter((tag) => !tag.toLowerCase().startsWith("difficulté:"))
+      .join(", ") ?? "";
+}
+
 function fillForm(recipe?: Recipe | null) {
   title.value = recipe?.title ?? "";
   description.value = recipe?.description ?? "";
   preparationTime.value = recipe?.preparationTime ?? 10;
   cookingTime.value = recipe?.cookingTime ?? 15;
   portions.value = recipe?.portions ?? 2;
+  imageUrl.value = recipe?.imageUrl ?? "";
+  imageError.value = "";
   source.value = recipe?.source ?? "Création personnelle";
-  ingredientsText.value = recipe?.ingredients?.map((ingredient) => ingredient.name).join("\n") ?? "";
+
+  ingredients.value = recipe?.ingredients?.length
+      ? recipe.ingredients.map((ingredient) => ({
+        name: ingredient.name,
+        quantity: ingredient.quantity ?? "",
+        unit: ingredient.unit ?? ""
+      }))
+      : [
+        {
+          name: "",
+          quantity: "",
+          unit: ""
+        }
+      ];
+
   stepsText.value = recipe?.steps?.map((step) => step.instruction).join("\n") ?? "";
-  tagsText.value = recipe?.tags?.join(", ") ?? "";
+  cuisineType.value = getTagValue("cuisine:", recipe?.tags);
+  dietType.value = getTagValue("régime:", recipe?.tags);
+  difficulty.value = getTagValue("difficulté:", recipe?.tags);
+  tagsText.value = getFreeTags(recipe?.tags);
+}
+
+function openImagePicker() {
+  imageInput.value?.click();
+}
+
+function removeImage() {
+  imageUrl.value = "";
+  imageError.value = "";
+}
+
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Image invalide"));
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error("Impossible de lire l'image"));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  imageError.value = "";
+
+  if (!file.type.startsWith("image/")) {
+    imageError.value = "Le fichier choisi doit être une image";
+    input.value = "";
+    return;
+  }
+
+  if (file.size > 1500000) {
+    imageError.value = "L'image ne doit pas dépasser 1,5 Mo";
+    input.value = "";
+    return;
+  }
+
+  try {
+    imageUrl.value = await readImageAsDataUrl(file);
+  } catch (error) {
+    imageError.value = error instanceof Error ? error.message : "Impossible de charger l'image";
+  } finally {
+    input.value = "";
+  }
+}
+
+function addIngredientRow() {
+  ingredients.value.push({
+    name: "",
+    quantity: "",
+    unit: ""
+  });
+}
+
+function removeIngredientRow(index: number) {
+  if (ingredients.value.length === 1) {
+    ingredients.value = [
+      {
+        name: "",
+        quantity: "",
+        unit: ""
+      }
+    ];
+    return;
+  }
+
+  ingredients.value.splice(index, 1);
 }
 
 function parseIngredients() {
-  return ingredientsText.value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => ({
-        name: line,
-        quantity: "",
-        unit: ""
-      }));
+  return ingredients.value
+      .map((ingredient) => ({
+        name: ingredient.name.trim(),
+        quantity: ingredient.quantity.trim(),
+        unit: ingredient.unit.trim()
+      }))
+      .filter((ingredient) => ingredient.name);
 }
 
 function parseSteps() {
@@ -67,10 +199,18 @@ function parseSteps() {
 }
 
 function parseTags() {
-  return tagsText.value
+  const freeTags = tagsText.value
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
+
+  const structuredTags = [
+    cuisineType.value.trim() ? `cuisine: ${cuisineType.value.trim()}` : "",
+    dietType.value.trim() ? `régime: ${dietType.value.trim()}` : "",
+    difficulty.value.trim() ? `difficulté: ${difficulty.value.trim()}` : ""
+  ].filter(Boolean);
+
+  return [...freeTags, ...structuredTags];
 }
 
 async function submitRecipe() {
@@ -81,7 +221,7 @@ async function submitRecipe() {
     return;
   }
 
-  const ingredients = parseIngredients();
+  const parsedIngredients = parseIngredients();
   const steps = parseSteps();
 
   if (!title.value.trim()) {
@@ -89,7 +229,7 @@ async function submitRecipe() {
     return;
   }
 
-  if (!ingredients.length) {
+  if (!parsedIngredients.length) {
     errorMessage.value = "Ajoute au moins un ingrédient";
     return;
   }
@@ -109,9 +249,9 @@ async function submitRecipe() {
       preparationTime: Number(preparationTime.value),
       cookingTime: Number(cookingTime.value),
       portions: Number(portions.value),
-      imageUrl: "",
+      imageUrl: imageUrl.value.trim(),
       source: source.value.trim(),
-      ingredients,
+      ingredients: parsedIngredients,
       steps,
       tags: parseTags()
     };
@@ -180,24 +320,91 @@ watch(
         </label>
       </div>
 
-      <label>
-        Source
-        <input v-model="source" type="text" placeholder="Création personnelle">
-      </label>
+      <div class="image-picker-block">
+        <div class="image-picker-header">
+          <div>
+            <strong>Image</strong>
+            <span>Choisir une image</span>
+          </div>
+
+          <div class="image-picker-actions">
+            <input
+                ref="imageInput"
+                type="file"
+                accept="image/*"
+                class="hidden-file-input"
+                @change="handleImageChange"
+            >
+
+            <button class="secondary-button" type="button" @click="openImagePicker">
+              Choisir une image
+            </button>
+
+            <button v-if="imageUrl" class="danger-button" type="button" @click="removeImage">
+              Retirer
+            </button>
+          </div>
+        </div>
+
+        <p v-if="imageError" class="recipe-error">
+          {{ imageError }}
+        </p>
+
+        <img v-if="imageUrl" class="recipe-image-preview" :src="imageUrl" alt="Aperçu de la recette">
+      </div>
 
       <label>
-        Ingrédients
-        <textarea v-model="ingredientsText" placeholder="Un ingrédient par ligne"></textarea>
+        Source
+        <input v-model="source" type="text" placeholder="Création personnelle ou URL">
       </label>
+
+      <div class="structured-section">
+        <div class="structured-header">
+          <h3>Ingrédients</h3>
+
+          <button class="secondary-button" type="button" @click="addIngredientRow">
+            Ajouter un ingrédient
+          </button>
+        </div>
+
+        <div class="ingredient-grid">
+          <div v-for="(ingredient, index) in ingredients" :key="index" class="ingredient-row">
+            <input v-model="ingredient.name" type="text" placeholder="Ingrédient">
+            <input v-model="ingredient.quantity" type="text" placeholder="Quantité">
+            <input v-model="ingredient.unit" type="text" placeholder="Unité">
+
+            <button class="danger-button" type="button" @click="removeIngredientRow(index)">
+              Retirer
+            </button>
+          </div>
+        </div>
+      </div>
 
       <label>
         Étapes
         <textarea v-model="stepsText" placeholder="Une étape par ligne"></textarea>
       </label>
 
+      <div class="recipe-form-row">
+        <label>
+          Type de cuisine
+          <input v-model="cuisineType" type="text" placeholder="Ex : française, italienne">
+        </label>
+
+        <label>
+          Régime
+          <input v-model="dietType" type="text" placeholder="Ex : végétarien, protéiné">
+        </label>
+
+        <label>
+          Difficulté
+          <input v-model="difficulty" type="text" placeholder="Ex : facile, moyen">
+        </label>
+      </div>
+
       <label>
         Tags
-        <input v-model="tagsText" type="text" placeholder="rapide, protéiné, midi">
+        <input v-model="tagsText" type="text" placeholder="rapide, midi, épicé">
       </label>
 
       <p v-if="errorMessage" class="recipe-error">
@@ -282,9 +489,82 @@ watch(
   color: white;
 }
 
-.secondary-button {
+.secondary-button,
+.recipe-form .secondary-button {
   background: #f3f4f6;
   color: #111827;
+}
+
+.recipe-form .danger-button {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.image-picker-block {
+  display: grid;
+  gap: 12px;
+}
+
+.image-picker-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.image-picker-header div {
+  display: grid;
+  gap: 4px;
+}
+
+.image-picker-header span {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.image-picker-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.recipe-image-preview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+}
+
+.structured-section {
+  display: grid;
+  gap: 12px;
+}
+
+.structured-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.structured-header h3 {
+  margin: 0;
+}
+
+.ingredient-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.ingredient-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 10px;
 }
 
 .recipe-error {
@@ -297,12 +577,16 @@ watch(
 }
 
 @media (max-width: 900px) {
-  .recipe-form-row {
+  .recipe-form-row,
+  .ingredient-row {
     grid-template-columns: 1fr;
   }
 
-  .recipe-form-header {
+  .recipe-form-header,
+  .structured-header,
+  .image-picker-header {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>
