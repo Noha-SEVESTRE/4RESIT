@@ -269,6 +269,13 @@ onMounted(loadRecipes);
 
     <div v-else class="recipe-grid">
       <article v-for="recipe in recipes" :key="recipe.id" class="recipe-card">
+        <img
+            v-if="recipe.imageUrl"
+            class="recipe-card-image"
+            :src="recipe.imageUrl"
+            :alt="recipe.title"
+        >
+
         <div class="recipe-card-top">
           <h3>{{ recipe.title }}</h3>
 
@@ -514,5 +521,14 @@ onMounted(loadRecipes);
 
 .hidden-file-input {
   display: none;
+}
+
+.recipe-card-image {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 </style>
