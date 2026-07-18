@@ -17,7 +17,7 @@ const createRecipeSchema = z.object({
     preparationTime: z.number().int().min(0).max(1440),
     cookingTime: z.number().int().min(0).max(1440),
     portions: z.number().int().min(1).max(50),
-    imageUrl: z.string().trim().max(1000).optional(),
+    imageUrl: z.string().max(2500000).optional(),
     source: z.string().trim().max(1000).optional(),
     ingredients: z.array(ingredientSchema).min(1, "Au moins un ingrédient est obligatoire"),
     steps: z.array(z.string().trim().min(1).max(2000)).min(1, "Au moins une étape est obligatoire"),

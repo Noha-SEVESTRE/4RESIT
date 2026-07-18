@@ -21,7 +21,7 @@ const importedRecipeSchema = z.object({
     preparationTime: z.coerce.number().int().min(0).default(0),
     cookingTime: z.coerce.number().int().min(0).default(0),
     portions: z.coerce.number().int().min(1).default(2),
-    imageUrl: z.string().trim().max(2000).optional().default(""),
+    imageUrl: z.string().max(2500000).optional().default(""),
     source: z.string().trim().max(500).optional().default("Import SUPMEAL"),
     ingredients: z.array(ingredientSchema).min(1, "La recette doit contenir au moins un ingrédient"),
     steps: z.array(z.string().trim().min(1).max(2000)).min(1, "La recette doit contenir au moins une étape"),
