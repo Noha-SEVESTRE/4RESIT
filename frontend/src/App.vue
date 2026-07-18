@@ -6,6 +6,7 @@ import RecipeForm from "./components/RecipeForm.vue";
 import type { Recipe } from "./services/recipeService";
 import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
+import SettingsPanel from "./components/SettingsPanel.vue";
 
 type ViewName = "login" | "register" | "dashboard";
 type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
@@ -220,6 +221,10 @@ function validateRegister() {
   registerErrors.value = errors;
 
   return Object.keys(errors).length === 0;
+}
+
+function handleUserUpdated(user: User) {
+  currentUser.value = user;
 }
 
 async function submitLogin() {
@@ -570,12 +575,7 @@ onMounted(async () => {
       </section>
 
       <section v-else class="page-section">
-        <section class="hero-card">
-          <div>
-            <p class="eyebrow">Paramètres</p>
-            <h2>Paramètres du compte</h2>
-          </div>
-        </section>
+        <SettingsPanel @updated="handleUserUpdated" />
       </section>
     </main>
   </div>
