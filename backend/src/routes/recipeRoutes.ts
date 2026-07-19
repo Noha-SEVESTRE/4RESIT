@@ -36,7 +36,8 @@ const listRecipesQuerySchema = z.object({
     maxPreparationTime: z.coerce.number().int().min(0).max(1440).optional(),
     maxCookingTime: z.coerce.number().int().min(0).max(1440).optional(),
     minPortions: z.coerce.number().int().min(1).max(50).optional(),
-    favorite: z.enum(["true", "false"]).optional()
+    favorite: z.enum(["true", "false"]).optional(),
+    cookbookId: z.union([z.string().uuid("L'identifiant du cookbook est invalide"), z.literal("personal")]).optional(),
 });
 
 function formatRecipe(row: any) {
@@ -49,6 +50,7 @@ function formatRecipe(row: any) {
         portions: row.portions,
         imageUrl: row.image_url,
         source: row.source,
+        cookbookId: row.cookbook_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
@@ -66,7 +68,7 @@ function formatRecipe(row: any) {
 
 async function getRecipeDetails(recipeId: string) {
     const recipeResult = await pool.query(
-        `SELECT id, title, description, preparation_time, cooking_time, portions, image_url, source, created_at, updated_at
+        `SELECT id, title, description, preparation_time, cooking_time, portions, image_url, source, cookbook_id, created_at, updated_at
          FROM recipes
          WHERE id = $1`,
         [recipeId]
@@ -135,6 +137,14 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
         const conditions = ["r.owner_id = $1"];
         let index = 2;
 
+        if (query.cookbookId === "personal") {
+            conditions.push("r.cookbook_id IS NULL");
+        } else if (query.cookbookId) {
+            values.push(query.cookbookId);
+            conditions.push(`r.cookbook_id = $${index}`);
+            index++;
+        }
+
         if (query.q) {
             values.push(`%${query.q}%`);
             conditions.push(
@@ -146,10 +156,15 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
             WHERE search_tags.recipe_id = r.id AND search_tags.name ILIKE $${index}
           )
           OR EXISTS (
-            SELECT 1
-            FROM recipe_ingredients search_ingredients
-            WHERE search_ingredients.recipe_id = r.id AND search_ingredients.name ILIKE $${index}
-          ))`
+              SELECT 1
+              FROM recipe_ingredients search_ingredients
+              WHERE search_ingredients.recipe_id = r.id AND search_ingredients.name ILIKE $${index}
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM recipe_steps search_steps
+              WHERE search_steps.recipe_id = r.id AND search_steps.instruction ILIKE $${index}
+            ))`
             );
             index++;
         }
@@ -232,6 +247,7 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
               r.image_url,
               r.source,
               r.created_at,
+              r.cookbook_id,
               r.updated_at,
               COALESCE(array_agg(DISTINCT rt.name) FILTER (WHERE rt.name IS NOT NULL), '{}') AS tags,
               EXISTS (
@@ -518,7 +534,7 @@ recipeRouter.get("/favorites", requireAuth, async (req, res, next) => {
         }
 
         const result = await pool.query(
-            `SELECT r.id, r.title, r.description, r.preparation_time, r.cooking_time, r.portions, r.image_url, r.source, r.created_at, r.updated_at
+            `SELECT r.id, r.title, r.description, r.preparation_time, r.cooking_time, r.portions, r.image_url, r.source, r.cookbook_id, r.created_at, r.updated_at
        FROM recipe_favorites rf
        JOIN recipes r ON r.id = rf.recipe_id
        WHERE rf.user_id = $1

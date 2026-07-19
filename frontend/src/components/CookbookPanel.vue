@@ -29,19 +29,13 @@ const selectedRecipeId = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
+const recipeSearch = ref("");
+const recipeTag = ref("");
+const recipeIngredient = ref("");
+const recipeMaxTotalTime = ref("");
 
 const canManageMembers = computed(() => selectedCookbook.value?.role === "OWNER");
 const canEditCookbook = computed(() => selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR");
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 async function loadCookbooks() {
   const token = getStoredToken();
@@ -75,8 +69,27 @@ async function loadPersonalRecipes() {
     return;
   }
 
-  const response = await getRecipes(token);
+  const response = await getRecipes(token, {
+    cookbookId: "personal"
+  });
   personalRecipes.value = response.recipes;
+}
+
+async function loadCookbookRecipes() {
+  const token = getStoredToken();
+
+  if (!token || !selectedCookbook.value) {
+    return;
+  }
+
+  const response = await getCookbookRecipes(token, selectedCookbook.value.id, {
+    q: recipeSearch.value || undefined,
+    tag: recipeTag.value || undefined,
+    ingredient: recipeIngredient.value || undefined,
+    maxTotalTime: recipeMaxTotalTime.value ? Number(recipeMaxTotalTime.value) : undefined
+  });
+
+  cookbookRecipes.value = response.recipes;
 }
 
 async function selectCookbook(cookbookId: string) {
@@ -90,14 +103,11 @@ async function selectCookbook(cookbookId: string) {
   errorMessage.value = "";
 
   try {
-    const [cookbookResponse, recipesResponse] = await Promise.all([
-      getCookbook(token, cookbookId),
-      getCookbookRecipes(token, cookbookId)
-    ]);
+    const cookbookResponse = await getCookbook(token, cookbookId);
 
     selectedCookbook.value = cookbookResponse.cookbook;
     members.value = cookbookResponse.members ?? [];
-    cookbookRecipes.value = recipesResponse.recipes;
+    await loadCookbookRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de charger ce cookbook";
   }
@@ -160,7 +170,9 @@ async function submitMember() {
     memberEmail.value = "";
     memberRole.value = "READER";
 
-    await selectCookbook(selectedCookbook.value.id);
+    await loadCookbookRecipes();
+    await loadCookbooks();
+    await loadPersonalRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter ce membre";
   } finally {
@@ -183,7 +195,9 @@ async function removeMember(member: CookbookMember) {
 
   try {
     await removeCookbookMember(token, selectedCookbook.value.id, member.id);
-    await selectCookbook(selectedCookbook.value.id);
+    await loadCookbookRecipes();
+    await loadCookbooks();
+    await loadPersonalRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer ce membre";
   }
@@ -207,7 +221,9 @@ async function submitRecipeToCookbook() {
   try {
     await addRecipeToCookbook(token, selectedCookbook.value.id, selectedRecipeId.value);
     selectedRecipeId.value = "";
-    await selectCookbook(selectedCookbook.value.id);
+    await loadCookbookRecipes();
+    await loadCookbooks();
+    await loadPersonalRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter cette recette";
   } finally {
@@ -230,10 +246,30 @@ async function removeRecipe(recipe: CookbookRecipe) {
 
   try {
     await removeRecipeFromCookbook(token, selectedCookbook.value.id, recipe.id);
-    await selectCookbook(selectedCookbook.value.id);
+    await loadCookbookRecipes();
+    await loadCookbooks();
+    await loadPersonalRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer cette recette";
   }
+}
+
+function getStoredToken() {
+  return (
+      localStorage.getItem("token") ??
+      localStorage.getItem("authToken") ??
+      localStorage.getItem("supmealToken") ??
+      localStorage.getItem("supmeal_token") ??
+      ""
+  );
+}
+
+function resetRecipeFilters() {
+  recipeSearch.value = "";
+  recipeTag.value = "";
+  recipeIngredient.value = "";
+  recipeMaxTotalTime.value = "";
+  loadCookbookRecipes();
 }
 
 onMounted(async () => {
@@ -336,7 +372,31 @@ onMounted(async () => {
         </div>
 
         <div class="cookbook-block">
-          <h5>Recettes du cookbook</h5>
+          <div class="cookbook-block-header">
+            <div>
+              <h5>Recettes du cookbook</h5>
+              <p>Recherche dédiée à ce cookbook.</p>
+            </div>
+
+            <button class="secondary-button" type="button" @click="loadCookbookRecipes">
+              Actualiser
+            </button>
+          </div>
+
+          <form class="recipe-filter-form" @submit.prevent="loadCookbookRecipes">
+            <input v-model="recipeSearch" type="text" placeholder="Titre, étape, tag...">
+            <input v-model="recipeTag" type="text" placeholder="Tag">
+            <input v-model="recipeIngredient" type="text" placeholder="Ingrédient">
+            <input v-model="recipeMaxTotalTime" type="number" min="0" placeholder="Temps max">
+
+            <button type="submit">
+              Rechercher
+            </button>
+
+            <button class="secondary-button" type="button" @click="resetRecipeFilters">
+              Réinitialiser
+            </button>
+          </form>
 
           <form v-if="canEditCookbook" class="member-form" @submit.prevent="submitRecipeToCookbook">
             <select v-model="selectedRecipeId">
@@ -356,9 +416,13 @@ onMounted(async () => {
               <div>
                 <strong>{{ recipe.title }}</strong>
                 <span>
-            {{ recipe.preparationTime + recipe.cookingTime }} min
-            <template v-if="recipe.owner"> · {{ recipe.owner.displayName }}</template>
-          </span>
+                  {{ recipe.preparationTime + recipe.cookingTime }} min
+                  <template v-if="recipe.owner"> · {{ recipe.owner.displayName }}</template>
+                </span>
+
+                <div v-if="recipe.tags?.length" class="recipe-tags">
+                  <small v-for="tag in recipe.tags" :key="tag">{{ tag }}</small>
+                </div>
               </div>
 
               <button
@@ -372,7 +436,7 @@ onMounted(async () => {
             </div>
 
             <p v-if="!cookbookRecipes.length" class="recipe-info">
-              Aucune recette dans ce cookbook.
+              Aucune recette ne correspond à cette recherche.
             </p>
           </div>
         </div>
@@ -396,23 +460,35 @@ onMounted(async () => {
 }
 
 .cookbook-form,
-.member-form {
+.member-form,
+.recipe-filter-form {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
   gap: 12px;
+}
+
+.cookbook-form,
+.member-form {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.recipe-filter-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .cookbook-form input,
 .member-form input,
-.member-form select {
+.member-form select,
+.recipe-filter-form input {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 14px;
+  background: white;
 }
 
 .cookbook-form button,
 .member-form button,
+.recipe-filter-form button,
 .secondary-button {
   border: 0;
   border-radius: 14px;
@@ -478,6 +554,19 @@ onMounted(async () => {
   gap: 14px;
 }
 
+.cookbook-block-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.cookbook-block-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
 .member-list,
 .cookbook-recipes {
   display: grid;
@@ -499,6 +588,20 @@ onMounted(async () => {
 .cookbook-recipe div {
   display: grid;
   gap: 3px;
+}
+
+.recipe-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recipe-tags small {
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-weight: 800;
 }
 
 .danger-button {
@@ -529,8 +632,13 @@ onMounted(async () => {
 @media (max-width: 900px) {
   .cookbook-form,
   .member-form,
+  .recipe-filter-form,
   .cookbook-layout {
     grid-template-columns: 1fr;
+  }
+
+  .cookbook-block-header {
+    flex-direction: column;
   }
 }
 </style>

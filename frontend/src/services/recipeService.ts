@@ -11,6 +11,7 @@ export type Recipe = {
     portions: number;
     imageUrl: string | null;
     source: string | null;
+    cookbookId: string | null;
     createdAt: string;
     updatedAt: string;
     tags?: string[];
@@ -23,6 +24,7 @@ export type RecipeFilters = {
     q?: string;
     tag?: string;
     ingredient?: string;
+    cookbookId?: string;
     maxTotalTime?: number;
     maxPreparationTime?: number;
     maxCookingTime?: number;
@@ -128,6 +130,10 @@ function buildQuery(filters: RecipeFilters) {
 
     if (filters.ingredient) {
         params.set("ingredient", filters.ingredient);
+    }
+
+    if (filters.cookbookId) {
+        params.set("cookbookId", filters.cookbookId);
     }
 
     if (filters.maxTotalTime !== undefined) {

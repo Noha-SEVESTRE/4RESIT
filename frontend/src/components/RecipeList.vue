@@ -12,6 +12,7 @@ import {
   type Recipe
 } from "../services/recipeService";
 import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
+import { getCookbooks, type Cookbook } from "../services/cookbookService";
 
 const emit = defineEmits<{
   edit: [recipe: Recipe];
@@ -27,6 +28,8 @@ const isLoading = ref(false);
 const errorMessage = ref("");
 const openedComments = ref<string | null>(null);
 const importInput = ref<HTMLInputElement | null>(null);
+const cookbooks = ref<Cookbook[]>([]);
+const selectedCookbookId = ref("");
 
 const hasRecipes = computed(() => recipes.value.length > 0);
 
@@ -65,6 +68,21 @@ function downloadJsonFile(fileName: string, data: unknown) {
 
 function openImportFile() {
   importInput.value?.click();
+}
+
+async function loadCookbookOptions() {
+  const token = getStoredToken();
+
+  if (!token) {
+    return;
+  }
+
+  try {
+    const response = await getCookbooks(token);
+    cookbooks.value = response.cookbooks;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les cookbooks";
+  }
 }
 
 async function exportCurrentRecipe(recipe: Recipe) {
@@ -125,6 +143,7 @@ async function loadRecipes() {
       q: search.value || undefined,
       tag: tag.value || undefined,
       ingredient: ingredient.value || undefined,
+      cookbookId: selectedCookbookId.value || undefined,
       maxTotalTime: maxTotalTime.value ? Number(maxTotalTime.value) : undefined,
       favorite: onlyFavorites.value ? "true" : undefined
     });
@@ -200,12 +219,18 @@ function resetFilters() {
   search.value = "";
   tag.value = "";
   ingredient.value = "";
+  selectedCookbookId.value = "";
   maxTotalTime.value = "";
   onlyFavorites.value = false;
   loadRecipes();
 }
 
-onMounted(loadRecipes);
+onMounted(async () => {
+  await Promise.all([
+    loadCookbookOptions(),
+    loadRecipes()
+  ]);
+});
 </script>
 
 <template>
@@ -236,9 +261,18 @@ onMounted(loadRecipes);
     </div>
 
     <form class="recipe-filters" @submit.prevent="loadRecipes">
-      <input v-model="search" type="text" placeholder="Rechercher une recette" />
+      <input v-model="search" type="text" placeholder="Rechercher titre, étape, tag..." />
       <input v-model="tag" type="text" placeholder="Tag" />
       <input v-model="ingredient" type="text" placeholder="Ingrédient" />
+
+      <select v-model="selectedCookbookId">
+        <option value="">Tous les cookbooks</option>
+        <option value="personal">Recettes personnelles</option>
+        <option v-for="cookbook in cookbooks" :key="cookbook.id" :value="cookbook.id">
+          {{ cookbook.name }}
+        </option>
+      </select>
+
       <input v-model="maxTotalTime" type="number" min="0" placeholder="Temps max" />
 
       <label class="favorite-filter">
@@ -291,6 +325,7 @@ onMounted(loadRecipes);
         <div class="recipe-meta">
           <span>{{ recipe.preparationTime + recipe.cookingTime }} min</span>
           <span>{{ recipe.portions }} portion{{ recipe.portions > 1 ? "s" : "" }}</span>
+          <span v-if="recipe.cookbookId">Cookbook</span>
         </div>
 
         <div v-if="recipe.tags?.length" class="recipe-tags">
@@ -359,11 +394,13 @@ onMounted(loadRecipes);
   align-items: center;
 }
 
-.recipe-filters input {
+.recipe-filters input,
+.recipe-filters select {
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 14px;
+  background: white;
 }
 
 .recipe-filters button,
