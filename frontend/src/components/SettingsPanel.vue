@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { ApiError, type FieldErrors, type User } from "../services/authService";
 import { changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
+import DataImportExportPanel from "./DataImportExportPanel.vue";
 
 const emit = defineEmits<{
   updated: [user: User];
@@ -287,6 +288,8 @@ onMounted(loadSettings);
           Le changement de mot de passe n'est pas disponible pour ce compte.
         </p>
       </section>
+
+      <DataImportExportPanel />
 
       <section class="settings-card">
         <div>
