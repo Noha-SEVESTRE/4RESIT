@@ -14,6 +14,13 @@ export type Cookbook = {
     updatedAt: string;
 };
 
+export type CookbookRecipeFilters = {
+    q?: string;
+    tag?: string;
+    ingredient?: string;
+    maxTotalTime?: number;
+};
+
 export type CookbookMember = {
     id: string;
     email: string;
@@ -49,6 +56,30 @@ type CookbookMemberResponse = {
 type MessageResponse = {
     message: string;
 };
+
+function buildCookbookRecipesQuery(filters: CookbookRecipeFilters) {
+    const params = new URLSearchParams();
+
+    if (filters.q) {
+        params.set("q", filters.q);
+    }
+
+    if (filters.tag) {
+        params.set("tag", filters.tag);
+    }
+
+    if (filters.ingredient) {
+        params.set("ingredient", filters.ingredient);
+    }
+
+    if (filters.maxTotalTime !== undefined) {
+        params.set("maxTotalTime", String(filters.maxTotalTime));
+    }
+
+    const query = params.toString();
+
+    return query ? `?${query}` : "";
+}
 
 async function request<T>(path: string, options: RequestInit) {
     const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -96,8 +127,8 @@ export function getCookbook(token: string, cookbookId: string) {
     });
 }
 
-export function getCookbookRecipes(token: string, cookbookId: string) {
-    return request<CookbookRecipesResponse>(`/cookbooks/${cookbookId}/recipes`, {
+export function getCookbookRecipes(token: string, cookbookId: string, filters: CookbookRecipeFilters = {}) {
+    return request<CookbookRecipesResponse>(`/cookbooks/${cookbookId}/recipes${buildCookbookRecipesQuery(filters)}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`

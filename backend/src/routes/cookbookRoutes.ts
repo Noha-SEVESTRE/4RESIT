@@ -32,6 +32,13 @@ const memberParamsSchema = z.object({
     userId: z.string().uuid("L'identifiant de l'utilisateur est invalide")
 });
 
+const cookbookRecipesQuerySchema = z.object({
+    q: z.string().trim().optional(),
+    tag: z.string().trim().optional(),
+    ingredient: z.string().trim().optional(),
+    maxTotalTime: z.coerce.number().int().min(0).max(2880).optional()
+});
+
 type CookbookRole = z.infer<typeof roleSchema>;
 
 function canEditCookbook(role: CookbookRole) {
@@ -409,12 +416,71 @@ cookbookRouter.get("/:id/recipes", requireAuth, async (req, res, next) => {
         }
 
         const params = cookbookParamsSchema.parse(req.params);
+        const query = cookbookRecipesQuerySchema.parse(req.query);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
 
         if (!accessRole) {
             return res.status(404).json({
                 message: "Cookbook introuvable"
             });
+        }
+
+        const values: unknown[] = [params.id];
+        const conditions = ["r.cookbook_id = $1"];
+        let index = 2;
+
+        if (query.q) {
+            values.push(`%${query.q}%`);
+            conditions.push(
+                `(r.title ILIKE $${index}
+                OR r.description ILIKE $${index}
+                OR EXISTS (
+                SELECT 1
+                FROM recipe_tags search_tags
+                WHERE search_tags.recipe_id = r.id AND search_tags.name ILIKE $${index}
+                )
+                OR EXISTS (
+                SELECT 1
+                FROM recipe_ingredients search_ingredients
+                WHERE search_ingredients.recipe_id = r.id AND search_ingredients.name ILIKE $${index}
+                )
+                OR EXISTS (
+                SELECT 1
+                FROM recipe_steps search_steps
+                WHERE search_steps.recipe_id = r.id AND search_steps.instruction ILIKE $${index}
+                ))`
+            );
+            index++;
+        }
+
+        if (query.tag) {
+            values.push(`%${query.tag}%`);
+            conditions.push(
+                `EXISTS (
+                SELECT 1
+                FROM recipe_tags filter_tags
+                WHERE filter_tags.recipe_id = r.id AND filter_tags.name ILIKE $${index}
+                )`
+            );
+            index++;
+        }
+
+        if (query.ingredient) {
+            values.push(`%${query.ingredient}%`);
+            conditions.push(
+                `EXISTS (
+                SELECT 1
+                FROM recipe_ingredients filter_ingredients
+                WHERE filter_ingredients.recipe_id = r.id AND filter_ingredients.name ILIKE $${index}
+                )`
+            );
+            index++;
+        }
+
+        if (query.maxTotalTime !== undefined) {
+            values.push(query.maxTotalTime);
+            conditions.push(`(r.preparation_time + r.cooking_time) <= $${index}`);
+            index++;
         }
 
         const result = await pool.query(
@@ -434,10 +500,10 @@ cookbookRouter.get("/:id/recipes", requireAuth, async (req, res, next) => {
        FROM recipes r
        JOIN users u ON u.id = r.owner_id
        LEFT JOIN recipe_tags rt ON rt.recipe_id = r.id
-       WHERE r.cookbook_id = $1
+       WHERE ${conditions.join(" AND ")}
        GROUP BY r.id, u.display_name
        ORDER BY r.created_at DESC`,
-            [params.id]
+            values
         );
 
         return res.status(200).json({
@@ -446,7 +512,7 @@ cookbookRouter.get("/:id/recipes", requireAuth, async (req, res, next) => {
     } catch (error) {
         if (error instanceof z.ZodError) {
             return res.status(400).json({
-                message: "Identifiant de cookbook invalide",
+                message: "Filtres de recherche invalides",
                 fieldErrors: error.flatten().fieldErrors
             });
         }
