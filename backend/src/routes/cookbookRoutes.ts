@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
+import { emitCookbookUpdated } from "../realtime/socket";
 
 export const cookbookRouter = Router();
 
@@ -327,12 +328,19 @@ cookbookRouter.post("/:id/members", requireAuth, async (req, res, next) => {
             [params.id, user.id, data.role]
         );
 
+        const member = formatMember({
+            ...user,
+            role: memberResult.rows[0].role,
+            created_at: memberResult.rows[0].created_at
+        });
+
+        emitCookbookUpdated(params.id, {
+            type: "member-updated",
+            label: "Membre ou rôle mis à jour"
+        });
+
         return res.status(200).json({
-            member: formatMember({
-                ...user,
-                role: memberResult.rows[0].role,
-                created_at: memberResult.rows[0].created_at
-            })
+            member
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -389,6 +397,11 @@ cookbookRouter.delete("/:id/members/:userId", requireAuth, async (req, res, next
                 message: "Membre introuvable"
             });
         }
+
+        emitCookbookUpdated(params.id, {
+            type: "member-removed",
+            label: "Membre retiré du cookbook"
+        });
 
         return res.status(200).json({
             message: "Membre retiré du cookbook"
@@ -561,6 +574,11 @@ cookbookRouter.post("/:id/recipes/:recipeId", requireAuth, async (req, res, next
             });
         }
 
+        emitCookbookUpdated(params.id, {
+            type: "recipe-added",
+            label: "Recette ajoutée au cookbook"
+        });
+
         return res.status(200).json({
             message: "Recette ajoutée au cookbook"
         });
@@ -615,6 +633,11 @@ cookbookRouter.delete("/:id/recipes/:recipeId", requireAuth, async (req, res, ne
                 message: "Recette introuvable dans ce cookbook"
             });
         }
+
+        emitCookbookUpdated(params.id, {
+            type: "recipe-removed",
+            label: "Recette retirée du cookbook"
+        });
 
         return res.status(200).json({
             message: "Recette retirée du cookbook"

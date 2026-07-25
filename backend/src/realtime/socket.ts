@@ -22,6 +22,11 @@ export type RealtimeCookbookMessage = {
     };
 };
 
+export type RealtimeCookbookUpdate = {
+    type: "member-updated" | "member-removed" | "recipe-added" | "recipe-removed";
+    label: string;
+};
+
 let io: Server | null = null;
 
 function getRoomName(cookbookId: string) {
@@ -126,5 +131,12 @@ export function emitCookbookMessageDeleted(cookbookId: string, messageId: string
     io?.to(getRoomName(cookbookId)).emit("cookbook:message-deleted", {
         cookbookId,
         messageId
+    });
+}
+
+export function emitCookbookUpdated(cookbookId: string, update: RealtimeCookbookUpdate) {
+    io?.to(getRoomName(cookbookId)).emit("cookbook:updated", {
+        cookbookId,
+        update
     });
 }

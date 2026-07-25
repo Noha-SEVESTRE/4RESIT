@@ -33,6 +33,7 @@ const recipeSearch = ref("");
 const recipeTag = ref("");
 const recipeIngredient = ref("");
 const recipeMaxTotalTime = ref("");
+const realtimeNotice = ref("");
 
 const canManageMembers = computed(() => selectedCookbook.value?.role === "OWNER");
 const canEditCookbook = computed(() => selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR");
@@ -272,6 +273,35 @@ function resetRecipeFilters() {
   loadCookbookRecipes();
 }
 
+async function handleRealtimeCookbookUpdate() {
+  const token = getStoredToken();
+
+  if (!token || !selectedCookbook.value) {
+    return;
+  }
+
+  try {
+    const cookbookResponse = await getCookbook(token, selectedCookbook.value.id);
+
+    selectedCookbook.value = cookbookResponse.cookbook;
+    members.value = cookbookResponse.members ?? [];
+
+    await Promise.all([
+      loadCookbooks(),
+      loadCookbookRecipes(),
+      loadPersonalRecipes()
+    ]);
+
+    realtimeNotice.value = "Cookbook mis à jour en temps réel";
+
+    window.setTimeout(() => {
+      realtimeNotice.value = "";
+    }, 2500);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger la mise à jour du cookbook";
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     loadCookbooks(),
@@ -334,6 +364,10 @@ onMounted(async () => {
           <h4>{{ selectedCookbook.name }}</h4>
           <p>{{ selectedCookbook.description || "Aucune description" }}</p>
         </div>
+
+        <p v-if="realtimeNotice" class="success-message">
+          {{ realtimeNotice }}
+        </p>
 
         <div class="cookbook-block">
           <h5>Membres</h5>
@@ -442,7 +476,10 @@ onMounted(async () => {
         </div>
 
         <div class="cookbook-block">
-          <CookbookMessagesPanel :cookbook-id="selectedCookbook.id" />
+          <CookbookMessagesPanel
+              :cookbook-id="selectedCookbook.id"
+              @cookbook-updated="handleRealtimeCookbookUpdate"
+          />
         </div>
       </article>
     </div>
@@ -640,5 +677,14 @@ onMounted(async () => {
   .cookbook-block-header {
     flex-direction: column;
   }
+}
+
+.success-message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 800;
 }
 </style>

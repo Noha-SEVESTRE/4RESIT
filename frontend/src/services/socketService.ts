@@ -14,6 +14,14 @@ export type CookbookMessageDeletedPayload = {
     messageId: string;
 };
 
+export type CookbookUpdatedPayload = {
+    cookbookId: string;
+    update: {
+        type: "member-updated" | "member-removed" | "recipe-added" | "recipe-removed";
+        label: string;
+    };
+};
+
 let socket: Socket | null = null;
 
 export function connectRealtime(token: string) {
@@ -57,5 +65,13 @@ export function onCookbookMessageDeleted(callback: (payload: CookbookMessageDele
 
     return () => {
         socket?.off("cookbook:message-deleted", callback);
+    };
+}
+
+export function onCookbookUpdated(callback: (payload: CookbookUpdatedPayload) => void) {
+    socket?.on("cookbook:updated", callback);
+
+    return () => {
+        socket?.off("cookbook:updated", callback);
     };
 }

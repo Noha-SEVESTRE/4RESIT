@@ -12,7 +12,8 @@ import {
   joinCookbookRoom,
   leaveCookbookRoom,
   onCookbookMessageCreated,
-  onCookbookMessageDeleted
+  onCookbookMessageDeleted,
+  onCookbookUpdated
 } from "../services/socketService";
 
 const props = defineProps<{
@@ -25,9 +26,13 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const isRealtimeConnected = ref(false);
 const errorMessage = ref("");
+const emit = defineEmits<{
+  (event: "cookbookUpdated"): void;
+}>();
 
 let removeCreatedListener: (() => void) | null = null;
 let removeDeletedListener: (() => void) | null = null;
+let removeUpdatedListener: (() => void) | null = null;
 
 function getStoredToken() {
   return (
@@ -103,6 +108,14 @@ function setupRealtime() {
     }
 
     removeMessageFromList(payload.messageId);
+  });
+
+  removeUpdatedListener = onCookbookUpdated((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    emit("cookbookUpdated");
   });
 
   socket.on("connect", () => {
@@ -198,6 +211,7 @@ onBeforeUnmount(() => {
   removeCreatedListener?.();
   removeDeletedListener?.();
   disconnectRealtime();
+  removeUpdatedListener?.();
 });
 </script>
 
