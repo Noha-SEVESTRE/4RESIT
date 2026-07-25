@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createCookbookMessage,
   deleteCookbookMessage,
   getCookbookMessages,
   type CookbookMessage
 } from "../services/discussionService";
+import {
+  connectRealtime,
+  disconnectRealtime,
+  joinCookbookRoom,
+  leaveCookbookRoom,
+  onCookbookMessageCreated,
+  onCookbookMessageDeleted
+} from "../services/socketService";
 
 const props = defineProps<{
   cookbookId: string;
@@ -15,7 +23,11 @@ const messages = ref<CookbookMessage[]>([]);
 const content = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
+const isRealtimeConnected = ref(false);
 const errorMessage = ref("");
+
+let removeCreatedListener: (() => void) | null = null;
+let removeDeletedListener: (() => void) | null = null;
 
 function getStoredToken() {
   return (
@@ -29,6 +41,21 @@ function getStoredToken() {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("fr-FR");
+}
+
+function addOrUpdateMessage(message: CookbookMessage) {
+  const exists = messages.value.some((item) => item.id === message.id);
+
+  if (exists) {
+    messages.value = messages.value.map((item) => item.id === message.id ? message : item);
+    return;
+  }
+
+  messages.value = [...messages.value, message];
+}
+
+function removeMessageFromList(messageId: string) {
+  messages.value = messages.value.filter((message) => message.id !== messageId);
 }
 
 async function loadMessages() {
@@ -52,6 +79,51 @@ async function loadMessages() {
   }
 }
 
+function setupRealtime() {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  const socket = connectRealtime(token);
+
+  removeCreatedListener = onCookbookMessageCreated((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    addOrUpdateMessage(payload.message);
+  });
+
+  removeDeletedListener = onCookbookMessageDeleted((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    removeMessageFromList(payload.messageId);
+  });
+
+  socket.on("connect", () => {
+    isRealtimeConnected.value = true;
+    joinCookbookRoom(props.cookbookId);
+  });
+
+  socket.on("disconnect", () => {
+    isRealtimeConnected.value = false;
+  });
+
+  socket.on("cookbook:error", (payload: { message?: string }) => {
+    errorMessage.value = payload.message ?? "Erreur de connexion temps réel";
+  });
+
+  if (socket.connected) {
+    isRealtimeConnected.value = true;
+    joinCookbookRoom(props.cookbookId);
+  }
+}
+
 async function submitMessage() {
   const token = getStoredToken();
 
@@ -69,9 +141,9 @@ async function submitMessage() {
   errorMessage.value = "";
 
   try {
-    await createCookbookMessage(token, props.cookbookId, content.value.trim());
+    const response = await createCookbookMessage(token, props.cookbookId, content.value.trim());
     content.value = "";
-    await loadMessages();
+    addOrUpdateMessage(response.message);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'envoyer le message";
   } finally {
@@ -95,7 +167,7 @@ async function removeMessage(message: CookbookMessage) {
 
   try {
     await deleteCookbookMessage(token, props.cookbookId, message.id);
-    await loadMessages();
+    removeMessageFromList(message.id);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer le message";
   }
@@ -103,18 +175,38 @@ async function removeMessage(message: CookbookMessage) {
 
 watch(
     () => props.cookbookId,
-    () => {
-      loadMessages();
+    async (cookbookId, previousCookbookId) => {
+      if (previousCookbookId) {
+        leaveCookbookRoom(previousCookbookId);
+      }
+
+      await loadMessages();
+
+      if (isRealtimeConnected.value) {
+        joinCookbookRoom(cookbookId);
+      }
     }
 );
 
-onMounted(loadMessages);
+onMounted(async () => {
+  await loadMessages();
+  setupRealtime();
+});
+
+onBeforeUnmount(() => {
+  leaveCookbookRoom(props.cookbookId);
+  removeCreatedListener?.();
+  removeDeletedListener?.();
+  disconnectRealtime();
+});
 </script>
 
 <template>
   <div class="messages-panel">
     <div class="messages-header">
-      <h5>Messages du cookbook</h5>
+      <div>
+        <h5>Messages du cookbook</h5>
+      </div>
 
       <button type="button" @click="loadMessages">
         Actualiser
@@ -171,7 +263,25 @@ onMounted(loadMessages);
 }
 
 .messages-header h5 {
-  margin: 0;
+  margin: 0 0 4px;
+}
+
+.realtime-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.realtime-status.connected {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.realtime-status.disconnected {
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .messages-header button,
@@ -239,5 +349,17 @@ onMounted(loadMessages);
 
 .message-item p {
   margin: 0;
+}
+
+@media (max-width: 700px) {
+  .messages-header,
+  .message-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .message-form {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
