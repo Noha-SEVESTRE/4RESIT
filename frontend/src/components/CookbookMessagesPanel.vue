@@ -1,21 +1,48 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { getCurrentUser } from "../services/authService";
 import {
   createCookbookMessage,
   deleteCookbookMessage,
   getCookbookMessages,
   type CookbookMessage
 } from "../services/discussionService";
+import {
+  connectRealtime,
+  disconnectRealtime,
+  joinCookbookRoom,
+  leaveCookbookRoom,
+  onCookbookMessageCreated,
+  onCookbookMessageDeleted,
+  onCookbookUpdated
+} from "../services/socketService";
 
 const props = defineProps<{
   cookbookId: string;
+  role: string;
+  canComment: boolean;
 }>();
 
 const messages = ref<CookbookMessage[]>([]);
 const content = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
+const isRealtimeConnected = ref(false);
+const emit = defineEmits<{
+  (event: "cookbookUpdated"): void;
+}>();
 const errorMessage = ref("");
+const currentUserId = ref("");
+
+const canDeleteAllMessages = computed(() => props.role === "OWNER");
+
+function canDeleteMessage(message: CookbookMessage) {
+  return canDeleteAllMessages.value || (props.canComment && message.author.id === currentUserId.value);
+}
+
+let removeCreatedListener: (() => void) | null = null;
+let removeDeletedListener: (() => void) | null = null;
+let removeUpdatedListener: (() => void) | null = null;
 
 function getStoredToken() {
   return (
@@ -29,6 +56,21 @@ function getStoredToken() {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("fr-FR");
+}
+
+function addOrUpdateMessage(message: CookbookMessage) {
+  const exists = messages.value.some((item) => item.id === message.id);
+
+  if (exists) {
+    messages.value = messages.value.map((item) => item.id === message.id ? message : item);
+    return;
+  }
+
+  messages.value = [...messages.value, message];
+}
+
+function removeMessageFromList(messageId: string) {
+  messages.value = messages.value.filter((message) => message.id !== messageId);
 }
 
 async function loadMessages() {
@@ -52,11 +94,69 @@ async function loadMessages() {
   }
 }
 
+function setupRealtime() {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  const socket = connectRealtime(token);
+
+  removeCreatedListener = onCookbookMessageCreated((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    addOrUpdateMessage(payload.message);
+  });
+
+  removeDeletedListener = onCookbookMessageDeleted((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    removeMessageFromList(payload.messageId);
+  });
+
+  removeUpdatedListener = onCookbookUpdated((payload) => {
+    if (payload.cookbookId !== props.cookbookId) {
+      return;
+    }
+
+    emit("cookbookUpdated");
+  });
+
+  socket.on("connect", () => {
+    isRealtimeConnected.value = true;
+    joinCookbookRoom(props.cookbookId);
+  });
+
+  socket.on("disconnect", () => {
+    isRealtimeConnected.value = false;
+  });
+
+  socket.on("cookbook:error", (payload: { message?: string }) => {
+    errorMessage.value = payload.message ?? "Erreur de connexion temps réel";
+  });
+
+  if (socket.connected) {
+    isRealtimeConnected.value = true;
+    joinCookbookRoom(props.cookbookId);
+  }
+}
+
 async function submitMessage() {
   const token = getStoredToken();
 
   if (!token) {
     errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  if (!props.canComment) {
+    errorMessage.value = "Votre rôle permet uniquement de lire les messages";
     return;
   }
 
@@ -69,9 +169,9 @@ async function submitMessage() {
   errorMessage.value = "";
 
   try {
-    await createCookbookMessage(token, props.cookbookId, content.value.trim());
+    const response = await createCookbookMessage(token, props.cookbookId, content.value.trim());
     content.value = "";
-    await loadMessages();
+    addOrUpdateMessage(response.message);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'envoyer le message";
   } finally {
@@ -87,6 +187,11 @@ async function removeMessage(message: CookbookMessage) {
     return;
   }
 
+  if (!canDeleteMessage(message)) {
+    errorMessage.value = "Vous ne pouvez pas supprimer ce message";
+    return;
+  }
+
   const confirmed = window.confirm("Supprimer ce message ?");
 
   if (!confirmed) {
@@ -95,33 +200,73 @@ async function removeMessage(message: CookbookMessage) {
 
   try {
     await deleteCookbookMessage(token, props.cookbookId, message.id);
-    await loadMessages();
+    removeMessageFromList(message.id);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer le message";
   }
 }
 
+async function loadCurrentUser() {
+  const token = getStoredToken();
+
+  if (!token) {
+    return;
+  }
+
+  try {
+    const response = await getCurrentUser(token);
+    currentUserId.value = response.user.id;
+  } catch (_error) {
+    currentUserId.value = "";
+  }
+}
+
 watch(
     () => props.cookbookId,
-    () => {
-      loadMessages();
+    async (cookbookId, previousCookbookId) => {
+      if (previousCookbookId) {
+        leaveCookbookRoom(previousCookbookId);
+      }
+
+      await loadMessages();
+
+      if (isRealtimeConnected.value) {
+        joinCookbookRoom(cookbookId);
+      }
     }
 );
 
-onMounted(loadMessages);
+onMounted(async () => {
+  await Promise.all([
+    loadCurrentUser(),
+    loadMessages()
+  ]);
+
+  setupRealtime();
+});
+
+onBeforeUnmount(() => {
+  leaveCookbookRoom(props.cookbookId);
+  removeCreatedListener?.();
+  removeDeletedListener?.();
+  disconnectRealtime();
+  removeUpdatedListener?.();
+});
 </script>
 
 <template>
   <div class="messages-panel">
     <div class="messages-header">
-      <h5>Messages du cookbook</h5>
+      <div>
+        <h5>Messages du cookbook</h5>
+      </div>
 
       <button type="button" @click="loadMessages">
         Actualiser
       </button>
     </div>
 
-    <form class="message-form" @submit.prevent="submitMessage">
+    <form v-if="canComment" class="message-form" @submit.prevent="submitMessage">
       <input v-model="content" type="text" placeholder="Écrire un message">
 
       <button type="submit" :disabled="isSaving">
@@ -149,7 +294,7 @@ onMounted(loadMessages);
           <p>{{ message.content }}</p>
         </div>
 
-        <button type="button" @click="removeMessage(message)">
+        <button v-if="canDeleteMessage(message)" type="button" @click="removeMessage(message)">
           Supprimer
         </button>
       </div>
@@ -171,7 +316,7 @@ onMounted(loadMessages);
 }
 
 .messages-header h5 {
-  margin: 0;
+  margin: 0 0 4px;
 }
 
 .messages-header button,
@@ -239,5 +384,17 @@ onMounted(loadMessages);
 
 .message-item p {
   margin: 0;
+}
+
+@media (max-width: 700px) {
+  .messages-header,
+  .message-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .message-form {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

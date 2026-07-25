@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
+import { emitCookbookMessageCreated, emitCookbookMessageDeleted } from "../realtime/socket";
 
 export const discussionRouter = Router();
 
@@ -95,6 +96,14 @@ async function getCookbookAccess(cookbookId: string, userId: string) {
     return result.rows[0]?.role ?? null;
 }
 
+function canComment(role: string | null) {
+    return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
+}
+
+function canDeleteDiscussionItem(role: string | null, isAuthor: boolean) {
+    return role === "OWNER" || ((role === "EDITOR" || role === "COMMENTATOR") && isAuthor);
+}
+
 discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
@@ -163,6 +172,12 @@ discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, re
             });
         }
 
+        if (!canComment(access.cookbookRole ?? (access.isOwner ? "OWNER" : null))) {
+            return res.status(403).json({
+                message: "Vous ne pouvez pas commenter cette recette"
+            });
+        }
+
         const result = await pool.query(
             `INSERT INTO recipe_comments (recipe_id, user_id, content)
        VALUES ($1, $2, $3)
@@ -183,8 +198,10 @@ discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, re
             [result.rows[0].id]
         );
 
+        const comment = formatComment(commentResult.rows[0]);
+
         return res.status(201).json({
-            comment: formatComment(commentResult.rows[0])
+            comment
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -232,7 +249,7 @@ discussionRouter.delete("/recipes/:recipeId/comments/:commentId", requireAuth, a
             });
         }
 
-        if (comment.user_id !== authenticatedRequest.user.userId && !access.isOwner) {
+        if (!canDeleteDiscussionItem(access.cookbookRole ?? (access.isOwner ? "OWNER" : null), comment.user_id === authenticatedRequest.user.userId)) {
             return res.status(403).json({
                 message: "Vous ne pouvez pas supprimer ce commentaire"
             });
@@ -327,6 +344,12 @@ discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req
             });
         }
 
+        if (!canComment(accessRole)) {
+            return res.status(403).json({
+                message: "Vous ne pouvez pas envoyer de message dans ce cookbook"
+            });
+        }
+
         const result = await pool.query(
             `INSERT INTO cookbook_messages (cookbook_id, user_id, content)
        VALUES ($1, $2, $3)
@@ -347,8 +370,12 @@ discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req
             [result.rows[0].id]
         );
 
+        const message = formatMessage(messageResult.rows[0]);
+
+        emitCookbookMessageCreated(params.cookbookId, message);
+
         return res.status(201).json({
-            message: formatMessage(messageResult.rows[0])
+            message
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -396,7 +423,7 @@ discussionRouter.delete("/cookbooks/:cookbookId/messages/:messageId", requireAut
             });
         }
 
-        if (message.user_id !== authenticatedRequest.user.userId && accessRole !== "OWNER") {
+        if (!canDeleteDiscussionItem(accessRole, message.user_id === authenticatedRequest.user.userId)) {
             return res.status(403).json({
                 message: "Vous ne pouvez pas supprimer ce message"
             });
@@ -404,9 +431,11 @@ discussionRouter.delete("/cookbooks/:cookbookId/messages/:messageId", requireAut
 
         await pool.query(
             `DELETE FROM cookbook_messages
-       WHERE id = $1`,
+             WHERE id = $1`,
             [params.messageId]
         );
+
+        emitCookbookMessageDeleted(params.cookbookId, params.messageId);
 
         return res.status(200).json({
             message: "Message supprimé"
