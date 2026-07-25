@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { getCurrentUser } from "../services/authService";
 import {
   createCookbookMessage,
   deleteCookbookMessage,
@@ -18,6 +19,8 @@ import {
 
 const props = defineProps<{
   cookbookId: string;
+  role: string;
+  canComment: boolean;
 }>();
 
 const messages = ref<CookbookMessage[]>([]);
@@ -25,10 +28,17 @@ const content = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isRealtimeConnected = ref(false);
-const errorMessage = ref("");
 const emit = defineEmits<{
   (event: "cookbookUpdated"): void;
 }>();
+const errorMessage = ref("");
+const currentUserId = ref("");
+
+const canDeleteAllMessages = computed(() => props.role === "OWNER");
+
+function canDeleteMessage(message: CookbookMessage) {
+  return canDeleteAllMessages.value || (props.canComment && message.author.id === currentUserId.value);
+}
 
 let removeCreatedListener: (() => void) | null = null;
 let removeDeletedListener: (() => void) | null = null;
@@ -145,6 +155,11 @@ async function submitMessage() {
     return;
   }
 
+  if (!props.canComment) {
+    errorMessage.value = "Votre rôle permet uniquement de lire les messages";
+    return;
+  }
+
   if (!content.value.trim()) {
     errorMessage.value = "Le message ne peut pas être vide";
     return;
@@ -172,6 +187,11 @@ async function removeMessage(message: CookbookMessage) {
     return;
   }
 
+  if (!canDeleteMessage(message)) {
+    errorMessage.value = "Vous ne pouvez pas supprimer ce message";
+    return;
+  }
+
   const confirmed = window.confirm("Supprimer ce message ?");
 
   if (!confirmed) {
@@ -183,6 +203,21 @@ async function removeMessage(message: CookbookMessage) {
     removeMessageFromList(message.id);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer le message";
+  }
+}
+
+async function loadCurrentUser() {
+  const token = getStoredToken();
+
+  if (!token) {
+    return;
+  }
+
+  try {
+    const response = await getCurrentUser(token);
+    currentUserId.value = response.user.id;
+  } catch (_error) {
+    currentUserId.value = "";
   }
 }
 
@@ -202,7 +237,11 @@ watch(
 );
 
 onMounted(async () => {
-  await loadMessages();
+  await Promise.all([
+    loadCurrentUser(),
+    loadMessages()
+  ]);
+
   setupRealtime();
 });
 
@@ -227,7 +266,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <form class="message-form" @submit.prevent="submitMessage">
+    <form v-if="canComment" class="message-form" @submit.prevent="submitMessage">
       <input v-model="content" type="text" placeholder="Écrire un message">
 
       <button type="submit" :disabled="isSaving">
@@ -255,7 +294,7 @@ onBeforeUnmount(() => {
           <p>{{ message.content }}</p>
         </div>
 
-        <button type="button" @click="removeMessage(message)">
+        <button v-if="canDeleteMessage(message)" type="button" @click="removeMessage(message)">
           Supprimer
         </button>
       </div>
@@ -278,24 +317,6 @@ onBeforeUnmount(() => {
 
 .messages-header h5 {
   margin: 0 0 4px;
-}
-
-.realtime-status {
-  display: inline-flex;
-  border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.realtime-status.connected {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.realtime-status.disconnected {
-  background: #fffbeb;
-  color: #92400e;
 }
 
 .messages-header button,

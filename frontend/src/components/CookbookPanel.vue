@@ -37,6 +37,9 @@ const realtimeNotice = ref("");
 
 const canManageMembers = computed(() => selectedCookbook.value?.role === "OWNER");
 const canEditCookbook = computed(() => selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR");
+const canComment = computed(() => {
+  return selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR" || selectedCookbook.value?.role === "COMMENTATOR";
+});
 
 async function loadCookbooks() {
   const token = getStoredToken();
@@ -292,8 +295,6 @@ async function handleRealtimeCookbookUpdate() {
       loadPersonalRecipes()
     ]);
 
-    realtimeNotice.value = "Cookbook mis à jour en temps réel";
-
     window.setTimeout(() => {
       realtimeNotice.value = "";
     }, 2500);
@@ -478,6 +479,8 @@ onMounted(async () => {
         <div class="cookbook-block">
           <CookbookMessagesPanel
               :cookbook-id="selectedCookbook.id"
+              :role="selectedCookbook.role"
+              :can-comment="canComment"
               @cookbook-updated="handleRealtimeCookbookUpdate"
           />
         </div>
