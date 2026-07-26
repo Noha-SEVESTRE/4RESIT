@@ -27,6 +27,7 @@ services:
       BACKEND_PORT: ${BACKEND_PORT}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      FRONTEND_URL: ${FRONTEND_URL}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -49,6 +50,8 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
     ports:
       - "${FRONTEND_PORT}:5173"
     depends_on:

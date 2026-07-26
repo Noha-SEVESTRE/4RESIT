@@ -1,5 +1,11 @@
 node_modules
 dist
+coverage
 .env
-.env.local
+.env.*
+.git
+.gitignore
+.idea
+.vscode
+*.log
 npm-debug.log
