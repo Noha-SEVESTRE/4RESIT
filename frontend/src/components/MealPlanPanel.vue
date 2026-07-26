@@ -120,7 +120,7 @@ onMounted(loadData);
 </script>
 
 <template>
-  <article class="panel">
+  <article class="panel meal-plan-panel">
     <div class="panel-header">
       <div>
         <p class="eyebrow">Planning</p>
@@ -182,60 +182,113 @@ onMounted(loadData);
 </template>
 
 <style scoped>
+.meal-plan-panel {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  border: 1px solid #c9ad8d;
+  background: #fffaf2;
+  box-shadow: 0 22px 65px rgba(44, 32, 24, 0.14);
+}
+
 .meal-plan-form {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr auto;
   gap: 12px;
   margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid #c9ad8d;
+  border-radius: 20px;
+  background: #fff4e6;
 }
 
 .meal-plan-form input,
 .meal-plan-form select {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #c9ad8d;
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 14px;
+  background: #fffdf8;
+  color: #2f241d;
+}
+
+.meal-plan-form input:focus,
+.meal-plan-form select:focus {
+  outline: none;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.13);
 }
 
 .meal-plan-form button,
 .secondary-button {
   border: 0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  font-weight: 800;
+  border-radius: 999px;
+  padding: 8px 16px;
+  min-height: 36px;
+  font-size: 14px;
+  font-weight: 900;
   cursor: pointer;
   background: #f97316;
   color: white;
 }
 
 .secondary-button {
-  background: #f3f4f6;
-  color: #111827;
+  background: #f2ebe3;
+  color: #2f241d;
+  box-shadow: none;
 }
 
 .recipe-error {
   margin: 0 0 14px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #fff7f7;
-  color: #b91c1c;
-  font-weight: 700;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 800;
 }
 
 .recipe-info {
   margin: 0;
-  color: #6b7280;
-  font-weight: 700;
+  color: #5f5148;
+  font-weight: 800;
 }
 
 .delete-plan-button {
-  border: 0;
+  width: auto;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #f3c6cf;
   border-radius: 999px;
-  padding: 9px 12px;
-  font-weight: 800;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 900;
   cursor: pointer;
-  background: #fff1f2;
+  background: #fff1f4;
   color: #be123c;
+  align-self: center;
+  white-space: nowrap;
+  box-shadow: none;
+  line-height: 1;
+}
+
+.delete-plan-button:hover {
+  background: #ffe4ea;
+}
+
+:deep(.list-item) {
+  border: 1px solid #c9ad8d;
+  background: #fffaf2;
+  box-shadow: 0 8px 20px rgba(44, 32, 24, 0.06);
+}
+
+:deep(.list-item strong) {
+  color: #2f241d;
+}
+
+:deep(.list-item span) {
+  color: #5f5148;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

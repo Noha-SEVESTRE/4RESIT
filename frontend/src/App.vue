@@ -40,18 +40,18 @@ const registerForm = ref({
 const stats = [
   {
     label: "Recettes",
-    value: "24",
-    detail: "Recettes personnelles"
+    value: "Créer",
+    detail: "Ajoutez vos recettes avec ingrédients, étapes, tags et image"
   },
   {
     label: "Cookbooks",
-    value: "3",
-    detail: "Espaces partagés"
+    value: "Partager",
+    detail: "Organisez des recettes communes avec des rôles par membre"
   },
   {
-    label: "Repas planifiés",
-    value: "12",
-    detail: "Cette semaine"
+    label: "Planning",
+    value: "Planifier",
+    detail: "Associez vos recettes aux repas de la semaine"
   }
 ];
 
@@ -552,10 +552,22 @@ onMounted(async () => {
               Créez des espaces partagés avec des membres et des rôles.
             </p>
           </article>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Paramètres</p>
+                <h3>Gérer mes données</h3>
+              </div>
+              <a href="#" @click.prevent="setCurrentPage('settings')">Ouvrir</a>
+            </div>
+            <p>
+              Modifiez vos préférences culinaires et utilisez l'import/export SUPMEAL.
+            </p>
+          </article>
         </section>
       </section>
 
-      <section v-else-if="currentPage === 'recipes'" class="page-section">
+      <section v-else-if="currentPage === 'recipes'" class="page-section recipes-page">
         <RecipeForm
             v-if="showRecipeForm"
             :recipe="selectedRecipe"
@@ -566,7 +578,7 @@ onMounted(async () => {
         <RecipeList :key="recipeListKey" @edit="openRecipeForm" />
       </section>
 
-      <section v-else-if="currentPage === 'planning'" class="dashboard-grid">
+      <section v-else-if="currentPage === 'planning'" class="page-section planning-page">
         <MealPlanPanel :key="recipeListKey" />
       </section>
 

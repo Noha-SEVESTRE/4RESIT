@@ -427,3 +427,578 @@ button:disabled {
   font-size: 13px;
   font-weight: 700;
 }
+
+.content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+button,
+.navigation a,
+.auth-switch button,
+.panel-header a {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+button:hover:not(:disabled),
+.panel-header a:hover {
+  transform: translateY(-1px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(217, 119, 6, 0.25);
+  outline-offset: 2px;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand-icon {
+  box-shadow: 0 10px 30px rgba(217, 119, 6, 0.35);
+}
+
+.navigation a {
+  display: block;
+  font-weight: 700;
+}
+
+.navigation a.active {
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
+.topbar {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(226, 210, 189, 0.75);
+}
+
+.hero-card,
+.stat-card,
+.panel {
+  border: 1px solid rgba(226, 210, 189, 0.75);
+}
+
+.panel,
+.stat-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.panel:hover,
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 48px rgba(47, 36, 29, 0.11);
+}
+
+.stat-card strong {
+  color: #d97706;
+  font-size: 30px;
+}
+
+.stat-card span {
+  font-weight: 800;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-card {
+  border: 1px solid rgba(226, 210, 189, 0.85);
+}
+
+.auth-form input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.oauth-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content input,
+.content textarea,
+.content select {
+  background: #fffdf8;
+  color: #2f241d;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.content input:focus,
+.content textarea:focus,
+.content select:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.13);
+}
+
+.content .recipe-form-card,
+.content .cookbook-panel,
+.content .settings-header,
+.content .settings-card,
+.content .data-panel,
+.content .recipe-card {
+  border: 1px solid rgba(226, 210, 189, 0.85);
+  background: #fffaf2;
+  box-shadow: 0 18px 55px rgba(47, 36, 29, 0.08);
+}
+
+.content .recipe-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.content .recipe-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 119, 6, 0.35);
+  box-shadow: 0 20px 55px rgba(47, 36, 29, 0.12);
+}
+
+.content .recipe-card-image,
+.content .recipe-image-preview {
+  border-color: rgba(226, 210, 189, 0.9);
+  background: #f7efe4;
+}
+
+.content .recipe-description,
+.content .recipe-info,
+.content .settings-info,
+.content .message-info,
+.content .comment-info {
+  color: #6b5f55;
+  line-height: 1.55;
+}
+
+.content .recipe-meta span {
+  background: #f8efe4;
+  color: #5f4634;
+  border: 1px solid rgba(226, 210, 189, 0.8);
+}
+
+.content .recipe-tags span,
+.content .recipe-tags small {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid rgba(4, 120, 87, 0.12);
+}
+
+.content .favorite-button {
+  display: grid;
+  place-items: center;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #ea580c;
+  box-shadow: none;
+}
+
+.content .recipe-actions button:not(.danger-button),
+.content .secondary-button,
+.content .comments-header button,
+.content .comment-form button,
+.content .comment-item button,
+.content .messages-header button,
+.content .message-form button,
+.content .message-item button {
+  border: 1px solid rgba(226, 210, 189, 0.9);
+  background: #f8efe4;
+  color: #4d4037;
+  box-shadow: none;
+}
+
+.content .danger-button,
+.content .delete-plan-button,
+.content .recipe-actions .danger-button {
+  border: 1px solid #ffe4e6;
+  background: #fff1f2;
+  color: #be123c;
+  box-shadow: none;
+}
+
+.content .recipe-error,
+.content .settings-error,
+.content .data-error,
+.content .message-error,
+.content .comment-error,
+.auth-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.content .settings-success,
+.content .data-success,
+.content .success-message {
+  border: 1px solid #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.content .settings-warning,
+.content .data-warning,
+.auth-info {
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.content .list-item,
+.content .member-item,
+.content .cookbook-recipe,
+.content .message-item,
+.content .comment-item {
+  background: #fffdf8;
+  border-color: rgba(226, 210, 189, 0.85);
+}
+
+.content .cookbook-list button {
+  background: #fffdf8;
+  border-color: rgba(226, 210, 189, 0.85);
+  box-shadow: none;
+}
+
+.content .cookbook-list button:hover {
+  border-color: rgba(217, 119, 6, 0.45);
+  background: #fff7ed;
+}
+
+.content .cookbook-list button.active {
+  border-color: #d97706;
+  background: #fff7ed;
+}
+
+.content .recipe-filters,
+.content .cookbook-form,
+.content .member-form,
+.content .recipe-filter-form,
+.content .meal-plan-form {
+  padding: 16px;
+  border: 1px solid rgba(226, 210, 189, 0.75);
+  border-radius: 20px;
+  background: #fffdf8;
+}
+
+.content .recipe-form label,
+.content .settings-form label {
+  color: #3b2d24;
+}
+
+.content .section-label,
+.content .eyebrow {
+  color: #d97706;
+}
+
+@media (max-width: 1100px) {
+  .recipe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content .recipe-filters,
+  .content .recipe-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .content {
+    padding: 24px;
+  }
+
+  .dashboard-grid,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .auth-page {
+    padding: 20px;
+  }
+
+  .auth-card {
+    padding: 26px 22px;
+  }
+
+  .oauth-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .content {
+    padding: 18px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 30px;
+  }
+
+  .hero-card,
+  .panel,
+  .stat-card,
+  .content .recipe-form-card,
+  .content .cookbook-panel,
+  .content .settings-header,
+  .content .settings-card,
+  .content .data-panel {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .content .recipe-filters,
+  .content .cookbook-form,
+  .content .member-form,
+  .content .recipe-filter-form,
+  .content .meal-plan-form {
+    padding: 14px;
+  }
+}
+
+button,
+.navigation a,
+.panel,
+.stat-card,
+.recipe-card,
+.cookbook-list button {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+button:hover:not(:disabled),
+.navigation a:hover,
+.panel:hover,
+.stat-card:hover,
+.recipe-card:hover,
+.cookbook-list button:hover {
+  transform: translateY(-1px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(217, 119, 6, 0.25);
+  outline-offset: 2px;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.navigation a.active {
+  box-shadow: inset 4px 0 0 #d97706;
+}
+
+.topbar {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(226, 210, 189, 0.75);
+}
+
+.content {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.panel,
+.hero-card,
+.stat-card {
+  border: 1px solid rgba(226, 210, 189, 0.85);
+}
+
+.panel:hover,
+.stat-card:hover {
+  box-shadow: 0 18px 48px rgba(47, 36, 29, 0.11);
+}
+
+.list-item {
+  border: 1px solid #e2d2bd;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .content {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 700px) {
+  .content {
+    padding: 18px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 30px;
+  }
+
+  .auth-page {
+    padding: 20px;
+  }
+
+  .auth-card {
+    padding: 26px 22px;
+  }
+
+  .oauth-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+.recipes-page {
+  display: grid;
+  gap: 46px;
+}
+
+.recipes-page .recipe-form-card {
+  margin-bottom: 8px;
+}
+
+.planning-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.planning-page .meal-plan-panel {
+  width: min(100%, 820px);
+}
+
+.settings-header {
+  justify-content: flex-start;
+}
+
+.content button,
+.auth-card button,
+.sidebar button {
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.content button:not(.cookbook-list-button):not(.secondary-button):not(.danger-button):not(.delete-plan-button):not(.message-delete-button):not(.favorite-button):not(:disabled),
+.auth-card button:not(:disabled) {
+  background: #f97316;
+  color: #ffffff;
+  border-color: #f97316;
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.18);
+}
+
+.content .secondary-button,
+.content button.secondary-button,
+.content .messages-header button,
+.content .comment-form button,
+.content .message-form button,
+.content .comment-item button,
+.content .message-item button:not(.message-delete-button),
+.content .recipe-header-actions .secondary-button,
+.content .settings-form .secondary-button {
+  background: #f2ebe3;
+  color: #2f241d;
+  border-color: #e2d2bd;
+  box-shadow: none;
+}
+
+.content .danger-button,
+.content .delete-plan-button,
+.content .message-delete-button,
+.content .recipe-actions .danger-button {
+  min-height: 34px;
+  background: #fff1f4;
+  color: #be123c;
+  border-color: #f3c6cf;
+  box-shadow: none;
+}
+
+.content .delete-plan-button,
+.content .message-delete-button {
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.content button:hover:not(:disabled),
+.auth-card button:hover:not(:disabled),
+.sidebar button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.content button:not(.cookbook-list-button):not(.secondary-button):not(.danger-button):not(.delete-plan-button):not(.message-delete-button):not(.favorite-button):hover:not(:disabled),
+.auth-card button:hover:not(:disabled) {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.content .secondary-button:hover,
+.content button.secondary-button:hover,
+.content .messages-header button:hover,
+.content .comment-form button:hover,
+.content .message-form button:hover,
+.content .comment-item button:hover,
+.content .message-item button:not(.message-delete-button):hover {
+  background: #eadfd2;
+  color: #2f241d;
+  border-color: #d8c7b2;
+}
+
+.content .danger-button:hover,
+.content .delete-plan-button:hover,
+.content .message-delete-button:hover,
+.content .recipe-actions .danger-button:hover {
+  background: #ffe4ea;
+  color: #be123c;
+  border-color: #f0aebb;
+}
+
+.content .recipe-header-actions .secondary-button {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+.content .recipe-header-actions .secondary-button:hover {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fdba74;
+}
+
+.content .favorite-button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  background: #fff7ed;
+  color: #f97316;
+  border-color: #fed7aa;
+}
+
+.content .favorite-button:hover {
+  background: #ffedd5;
+  color: #ea580c;
+}
