@@ -217,10 +217,6 @@ onMounted(loadSettings);
         <p class="section-label">Paramètres</p>
         <h2>Compte et préférences</h2>
       </div>
-
-      <button class="secondary-button" type="button" @click="loadSettings">
-        Actualiser
-      </button>
     </div>
 
     <p v-if="isLoading" class="settings-info">
@@ -342,16 +338,20 @@ onMounted(loadSettings);
 
 <style scoped>
 .settings-panel {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
   display: grid;
-  gap: 22px;
+  gap: 20px;
 }
 
 .settings-header,
 .settings-card {
-  background: white;
-  border-radius: 28px;
-  padding: 28px;
-  box-shadow: 0 20px 60px rgba(44, 32, 24, 0.08);
+  background: #fffdf8;
+  border: 1px solid #decab0;
+  border-radius: 26px;
+  padding: 24px;
+  box-shadow: 0 18px 50px rgba(44, 32, 24, 0.09);
 }
 
 .settings-header {
@@ -363,20 +363,22 @@ onMounted(loadSettings);
 
 .settings-content {
   display: grid;
-  gap: 22px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
 }
 
 .settings-card {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .section-label {
   margin: 0 0 4px;
-  color: #f97316;
-  font-weight: 800;
+  color: #ea580c;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-size: 12px;
 }
 
@@ -387,32 +389,41 @@ onMounted(loadSettings);
 
 .settings-form {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .settings-form label {
   display: grid;
-  gap: 8px;
-  font-weight: 800;
+  gap: 7px;
+  color: #2f241d;
+  font-weight: 900;
 }
 
 .settings-form input {
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 13px 15px;
+  border: 1px solid #d9c7b2;
+  border-radius: 15px;
+  padding: 12px 14px;
+  background: #fffdf8;
+  color: #2f241d;
   font: inherit;
 }
 
+.settings-form input:focus {
+  outline: none;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.13);
+}
+
 .settings-form input:disabled {
-  background: #f9fafb;
-  color: #6b7280;
+  background: #f8efe4;
+  color: #5f5148;
 }
 
 .settings-form button,
 .secondary-button {
   border: 0;
-  border-radius: 16px;
-  padding: 14px 18px;
+  border-radius: 15px;
+  padding: 12px 16px;
   font-weight: 900;
   cursor: pointer;
   background: #f97316;
@@ -420,14 +431,15 @@ onMounted(loadSettings);
 }
 
 .secondary-button {
-  background: #f3f4f6;
-  color: #111827;
+  background: #f2ebe3;
+  color: #2f241d;
+  box-shadow: none;
 }
 
 .field-error {
   color: #b91c1c;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .settings-error,
@@ -436,33 +448,61 @@ onMounted(loadSettings);
   margin: 0;
   padding: 12px 14px;
   border-radius: 14px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .settings-error {
-  background: #fff7f7;
-  color: #b91c1c;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .settings-warning {
+  border: 1px solid #fde68a;
   background: #fffbeb;
   color: #92400e;
 }
 
 .settings-success {
+  border: 1px solid #bbf7d0;
   background: #ecfdf5;
   color: #047857;
 }
 
 .settings-info {
   margin: 0;
-  color: #6b7280;
-  font-weight: 700;
+  color: #5f5148;
+  font-weight: 800;
+}
+
+:deep(.data-panel) {
+  border: 1px solid #decab0;
+  border-radius: 26px;
+  background: #fffdf8;
+  padding: 24px;
+  box-shadow: 0 18px 50px rgba(44, 32, 24, 0.09);
+}
+
+:deep(.data-actions button) {
+  padding: 12px 16px;
+  border-radius: 15px;
+}
+
+@media (max-width: 1100px) {
+  .settings-content {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
   .settings-header {
     flex-direction: column;
+  }
+
+  .settings-header,
+  .settings-card,
+  :deep(.data-panel) {
+    padding: 20px;
   }
 }
 </style>

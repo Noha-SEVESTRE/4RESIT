@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
           <p>{{ message.content }}</p>
         </div>
 
-        <button v-if="canDeleteMessage(message)" type="button" @click="removeMessage(message)">
+        <button v-if="canDeleteMessage(message)" class="message-delete-button" type="button" @click="removeMessage(message)">
           Supprimer
         </button>
       </div>
@@ -317,45 +317,61 @@ onBeforeUnmount(() => {
 
 .messages-header h5 {
   margin: 0 0 4px;
+  color: #2f241d;
+  font-size: 17px;
 }
 
 .messages-header button,
 .message-form button,
 .message-item button {
-  border: 0;
+  border: 1px solid #e2d2bd;
   border-radius: 999px;
-  padding: 8px 11px;
-  font-weight: 800;
+  padding: 8px 12px;
+  font-weight: 900;
   cursor: pointer;
-  background: #f3f4f6;
-  color: #111827;
+  background: #f8efe4;
+  color: #2f241d;
+  box-shadow: none;
 }
 
 .message-form {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2d2bd;
+  border-radius: 18px;
+  background: #fffaf2;
 }
 
 .message-form input {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d9c7b2;
   border-radius: 14px;
   padding: 10px 12px;
+  background: #fffdf8;
+  color: #2f241d;
+}
+
+.message-form input:focus {
+  outline: none;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.13);
 }
 
 .message-error {
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fff7f7;
-  color: #b91c1c;
-  font-weight: 700;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 800;
 }
 
 .message-info {
   margin: 0;
-  color: #6b7280;
-  font-weight: 700;
+  color: #5f5148;
+  font-weight: 800;
 }
 
 .message-list {
@@ -367,9 +383,10 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border: 1px solid #d9c7b2;
+  border-radius: 16px;
   padding: 12px;
+  background: #fffaf2;
 }
 
 .message-item div {
@@ -377,13 +394,27 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 
+.message-item strong {
+  color: #2f241d;
+  font-weight: 900;
+}
+
 .message-item span {
-  color: #6b7280;
+  color: #6b5f55;
   font-size: 12px;
+  font-weight: 700;
 }
 
 .message-item p {
   margin: 0;
+  color: #3b2d24;
+  line-height: 1.45;
+}
+
+.message-item .message-delete-button {
+  background: #fff1f4;
+  color: #be123c;
+  border-color: #f3c6cf;
 }
 
 @media (max-width: 700px) {
@@ -396,5 +427,27 @@ onBeforeUnmount(() => {
   .message-form {
     grid-template-columns: 1fr;
   }
+}
+
+.message-delete-button {
+  width: auto;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #f3c6cf;
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #fff1f4;
+  color: #be123c;
+  align-self: center;
+  white-space: nowrap;
+  box-shadow: none;
+  line-height: 1;
+}
+
+.message-delete-button:hover {
+  background: #ffe4ea;
 }
 </style>

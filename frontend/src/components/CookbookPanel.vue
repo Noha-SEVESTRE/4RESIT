@@ -347,6 +347,7 @@ onMounted(async () => {
             v-for="cookbook in cookbooks"
             :key="cookbook.id"
             type="button"
+            class="cookbook-list-button"
             :class="{ active: selectedCookbook?.id === cookbook.id }"
             @click="selectCookbook(cookbook.id)"
         >
@@ -491,10 +492,11 @@ onMounted(async () => {
 
 <style scoped>
 .cookbook-panel {
-  background: white;
+  background: #fffdf8;
+  border: 1px solid #decab0;
   border-radius: 28px;
-  padding: 28px;
-  box-shadow: 0 20px 60px rgba(44, 32, 24, 0.08);
+  padding: 26px;
+  box-shadow: 0 20px 60px rgba(44, 32, 24, 0.1);
   display: grid;
   gap: 22px;
 }
@@ -513,17 +515,45 @@ onMounted(async () => {
 
 .recipe-filter-form {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 16px;
+  border: 1px solid #e2d2bd;
+  border-radius: 20px;
+  background: #fffaf2;
+}
+
+.cookbook-form {
+  padding: 16px;
+  border: 1px solid #e2d2bd;
+  border-radius: 20px;
+  background: #fffaf2;
+}
+
+.member-form {
+  padding: 14px;
+  border: 1px solid #e2d2bd;
+  border-radius: 18px;
+  background: #fffaf2;
 }
 
 .cookbook-form input,
 .member-form input,
 .member-form select,
 .recipe-filter-form input {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d9c7b2;
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 14px;
-  background: white;
+  background: #fffdf8;
+  color: #2f241d;
+}
+
+.cookbook-form input:focus,
+.member-form input:focus,
+.member-form select:focus,
+.recipe-filter-form input:focus {
+  outline: none;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.13);
 }
 
 .cookbook-form button,
@@ -533,21 +563,23 @@ onMounted(async () => {
   border: 0;
   border-radius: 14px;
   padding: 12px 14px;
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
   background: #f97316;
   color: white;
 }
 
 .secondary-button {
-  background: #f3f4f6;
-  color: #111827;
+  background: #f2ebe3;
+  color: #2f241d;
+  box-shadow: none;
 }
 
 .cookbook-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 20px;
+  grid-template-columns: 300px 1fr;
+  gap: 22px;
+  align-items: start;
 }
 
 .cookbook-list {
@@ -557,26 +589,41 @@ onMounted(async () => {
 }
 
 .cookbook-list button {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d9c7b2;
   border-radius: 18px;
-  padding: 14px;
-  background: white;
+  padding: 15px;
+  background: #fffaf2;
+  color: #2f241d;
   text-align: left;
   display: grid;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
+  box-shadow: none;
+}
+
+.cookbook-list button:hover {
+  border-color: #d97706;
+  background: #fff7ed;
 }
 
 .cookbook-list button.active {
-  border-color: #f97316;
+  border-color: #d97706;
   background: #fff7ed;
+  box-shadow: inset 4px 0 0 #d97706;
+}
+
+.cookbook-list strong {
+  color: #2f241d;
+  font-size: 16px;
+  font-weight: 900;
 }
 
 .cookbook-list span,
 .member-item span,
 .cookbook-recipe span {
-  color: #6b7280;
+  color: #5f5148;
   font-size: 13px;
+  font-weight: 700;
 }
 
 .cookbook-detail {
@@ -584,14 +631,36 @@ onMounted(async () => {
   gap: 20px;
 }
 
-.cookbook-detail h4,
+.cookbook-detail > div:first-child {
+  padding: 18px;
+  border: 1px solid #e2d2bd;
+  border-radius: 22px;
+  background: #fffaf2;
+}
+
+.cookbook-detail h4 {
+  margin: 0 0 8px;
+  color: #2f241d;
+  font-size: 24px;
+}
+
+.cookbook-detail p {
+  color: #5f5148;
+}
+
 .cookbook-block h5 {
   margin: 0;
+  color: #2f241d;
+  font-size: 17px;
 }
 
 .cookbook-block {
   display: grid;
   gap: 14px;
+  padding: 18px;
+  border: 1px solid #e2d2bd;
+  border-radius: 22px;
+  background: #fffdf8;
 }
 
 .cookbook-block-header {
@@ -603,8 +672,9 @@ onMounted(async () => {
 
 .cookbook-block-header p {
   margin: 4px 0 0;
-  color: #6b7280;
+  color: #5f5148;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .member-list,
@@ -619,15 +689,23 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d9c7b2;
   border-radius: 16px;
-  padding: 12px 14px;
+  padding: 13px 14px;
+  background: #fffaf2;
 }
 
 .member-item div,
 .cookbook-recipe div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+}
+
+.member-item strong,
+.cookbook-recipe strong {
+  color: #2f241d;
+  font-size: 15px;
+  font-weight: 900;
 }
 
 .recipe-tags {
@@ -637,57 +715,78 @@ onMounted(async () => {
 }
 
 .recipe-tags small {
-  background: #ecfdf5;
+  background: #e8f8ef;
   color: #047857;
+  border: 1px solid #bfead2;
   border-radius: 999px;
-  padding: 4px 8px;
-  font-weight: 800;
+  padding: 4px 9px;
+  font-weight: 900;
 }
 
 .danger-button {
   border: 0;
   border-radius: 999px;
-  padding: 9px 12px;
-  font-weight: 800;
+  padding: 8px 12px;
+  font-weight: 900;
   cursor: pointer;
   background: #fff1f2;
   color: #be123c;
+  box-shadow: none;
 }
 
 .recipe-error {
   margin: 0;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #fff7f7;
-  color: #b91c1c;
-  font-weight: 700;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 800;
 }
 
 .recipe-info {
   margin: 0;
-  color: #6b7280;
-  font-weight: 700;
-}
-
-@media (max-width: 900px) {
-  .cookbook-form,
-  .member-form,
-  .recipe-filter-form,
-  .cookbook-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .cookbook-block-header {
-    flex-direction: column;
-  }
+  color: #5f5148;
+  font-weight: 800;
 }
 
 .success-message {
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
+  border: 1px solid #bbf7d0;
   background: #ecfdf5;
   color: #047857;
-  font-weight: 800;
+  font-weight: 900;
+}
+
+@media (max-width: 1100px) {
+  .cookbook-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cookbook-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recipe-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .cookbook-form,
+  .member-form,
+  .recipe-filter-form,
+  .cookbook-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cookbook-block-header,
+  .member-item,
+  .cookbook-recipe {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>
