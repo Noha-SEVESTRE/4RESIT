@@ -5,6 +5,7 @@ import {
   addCookbookMember,
   addRecipeToCookbook,
   createCookbook,
+  deleteCookbook,
   getCookbook,
   getCookbookRecipes,
   getCookbooks,
@@ -15,6 +16,9 @@ import {
   type CookbookRecipe
 } from "../services/cookbookService";
 import CookbookMessagesPanel from "./CookbookMessagesPanel.vue";
+import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
+
+type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
 
 const cookbooks = ref<Cookbook[]>([]);
 const selectedCookbook = ref<Cookbook | null>(null);
@@ -24,7 +28,7 @@ const personalRecipes = ref<Recipe[]>([]);
 const name = ref("");
 const description = ref("");
 const memberEmail = ref("");
-const memberRole = ref("READER");
+const memberRole = ref<CookbookRole>("READER");
 const selectedRecipeId = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
@@ -34,12 +38,29 @@ const recipeTag = ref("");
 const recipeIngredient = ref("");
 const recipeMaxTotalTime = ref("");
 const realtimeNotice = ref("");
+const openedRecipeComments = ref<string | null>(null);
 
 const canManageMembers = computed(() => selectedCookbook.value?.role === "OWNER");
-const canEditCookbook = computed(() => selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR");
-const canComment = computed(() => {
-  return selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR" || selectedCookbook.value?.role === "COMMENTATOR";
+
+const canEditCookbook = computed(() => {
+  return selectedCookbook.value?.role === "OWNER" || selectedCookbook.value?.role === "EDITOR";
 });
+
+const canComment = computed(() => {
+  const role = selectedCookbook.value?.role;
+
+  return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
+});
+
+function getStoredToken() {
+  return (
+      localStorage.getItem("token") ??
+      localStorage.getItem("authToken") ??
+      localStorage.getItem("supmealToken") ??
+      localStorage.getItem("supmeal_token") ??
+      ""
+  );
+}
 
 async function loadCookbooks() {
   const token = getStoredToken();
@@ -66,17 +87,23 @@ async function loadCookbooks() {
   }
 }
 
-async function loadPersonalRecipes() {
+async function loadAvailableRecipes() {
   const token = getStoredToken();
 
   if (!token) {
     return;
   }
 
-  const response = await getRecipes(token, {
-    cookbookId: "personal"
-  });
-  personalRecipes.value = response.recipes;
+  try {
+    const response = await getRecipes(token);
+    const currentCookbookRecipeIds = new Set(cookbookRecipes.value.map((recipe) => recipe.id));
+
+    personalRecipes.value = response.recipes.filter((recipe) => {
+      return !currentCookbookRecipeIds.has(recipe.id);
+    });
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes disponibles";
+  }
 }
 
 async function loadCookbookRecipes() {
@@ -86,14 +113,18 @@ async function loadCookbookRecipes() {
     return;
   }
 
-  const response = await getCookbookRecipes(token, selectedCookbook.value.id, {
-    q: recipeSearch.value || undefined,
-    tag: recipeTag.value || undefined,
-    ingredient: recipeIngredient.value || undefined,
-    maxTotalTime: recipeMaxTotalTime.value ? Number(recipeMaxTotalTime.value) : undefined
-  });
+  try {
+    const response = await getCookbookRecipes(token, selectedCookbook.value.id, {
+      q: recipeSearch.value || undefined,
+      tag: recipeTag.value || undefined,
+      ingredient: recipeIngredient.value || undefined,
+      maxTotalTime: recipeMaxTotalTime.value ? Number(recipeMaxTotalTime.value) : undefined
+    });
 
-  cookbookRecipes.value = response.recipes;
+    cookbookRecipes.value = response.recipes;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes du cookbook";
+  }
 }
 
 async function selectCookbook(cookbookId: string) {
@@ -105,13 +136,16 @@ async function selectCookbook(cookbookId: string) {
   }
 
   errorMessage.value = "";
+  openedRecipeComments.value = null;
 
   try {
     const cookbookResponse = await getCookbook(token, cookbookId);
 
     selectedCookbook.value = cookbookResponse.cookbook;
     members.value = cookbookResponse.members ?? [];
+
     await loadCookbookRecipes();
+    await loadAvailableRecipes();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de charger ce cookbook";
   }
@@ -174,9 +208,7 @@ async function submitMember() {
     memberEmail.value = "";
     memberRole.value = "READER";
 
-    await loadCookbookRecipes();
-    await loadCookbooks();
-    await loadPersonalRecipes();
+    await refreshSelectedCookbook();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter ce membre";
   } finally {
@@ -199,9 +231,7 @@ async function removeMember(member: CookbookMember) {
 
   try {
     await removeCookbookMember(token, selectedCookbook.value.id, member.id);
-    await loadCookbookRecipes();
-    await loadCookbooks();
-    await loadPersonalRecipes();
+    await refreshSelectedCookbook();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer ce membre";
   }
@@ -224,10 +254,10 @@ async function submitRecipeToCookbook() {
 
   try {
     await addRecipeToCookbook(token, selectedCookbook.value.id, selectedRecipeId.value);
+
     selectedRecipeId.value = "";
-    await loadCookbookRecipes();
-    await loadCookbooks();
-    await loadPersonalRecipes();
+
+    await refreshSelectedCookbook();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter cette recette";
   } finally {
@@ -250,30 +280,43 @@ async function removeRecipe(recipe: CookbookRecipe) {
 
   try {
     await removeRecipeFromCookbook(token, selectedCookbook.value.id, recipe.id);
-    await loadCookbookRecipes();
-    await loadCookbooks();
-    await loadPersonalRecipes();
+
+    if (openedRecipeComments.value === recipe.id) {
+      openedRecipeComments.value = null;
+    }
+
+    await refreshSelectedCookbook();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer cette recette";
   }
 }
 
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
+async function refreshSelectedCookbook() {
+  if (!selectedCookbook.value) {
+    return;
+  }
+
+  const selectedId = selectedCookbook.value.id;
+
+  await loadCookbooks();
+  await selectCookbook(selectedId);
 }
 
-function resetRecipeFilters() {
+async function resetRecipeFilters() {
   recipeSearch.value = "";
   recipeTag.value = "";
   recipeIngredient.value = "";
   recipeMaxTotalTime.value = "";
-  loadCookbookRecipes();
+
+  await loadCookbookRecipes();
+}
+
+function openRecipeDetails(recipeId: string) {
+  window.open(`${window.location.origin}/?recipeId=${recipeId}`, "_blank", "noopener,noreferrer");
+}
+
+function toggleRecipeComments(recipeId: string) {
+  openedRecipeComments.value = openedRecipeComments.value === recipeId ? null : recipeId;
 }
 
 async function handleRealtimeCookbookUpdate() {
@@ -292,7 +335,7 @@ async function handleRealtimeCookbookUpdate() {
     await Promise.all([
       loadCookbooks(),
       loadCookbookRecipes(),
-      loadPersonalRecipes()
+      loadAvailableRecipes()
     ]);
 
     window.setTimeout(() => {
@@ -303,11 +346,53 @@ async function handleRealtimeCookbookUpdate() {
   }
 }
 
+async function removeCookbook() {
+  const token = getStoredToken();
+
+  if (!token || !selectedCookbook.value) {
+    return;
+  }
+
+  if (selectedCookbook.value.role !== "OWNER") {
+    errorMessage.value = "Seul le propriétaire peut supprimer ce cookbook";
+    return;
+  }
+
+  const cookbookName = selectedCookbook.value.name;
+  const confirmation = window.prompt(`Pour supprimer le cookbook "${cookbookName}", tape exactement son nom :`);
+
+  if (confirmation === null) {
+    return;
+  }
+
+  if (confirmation !== cookbookName) {
+    errorMessage.value = "Le nom saisi ne correspond pas au nom du cookbook";
+    return;
+  }
+
+  const confirmed = window.confirm(`Confirmer la suppression définitive du cookbook "${cookbookName}" ?`);
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await deleteCookbook(token, selectedCookbook.value.id);
+
+    selectedCookbook.value = null;
+    members.value = [];
+    cookbookRecipes.value = [];
+    personalRecipes.value = [];
+    openedRecipeComments.value = null;
+
+    await loadCookbooks();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer ce cookbook";
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([
-    loadCookbooks(),
-    loadPersonalRecipes()
-  ]);
+  await loadCookbooks();
 });
 </script>
 
@@ -361,10 +446,21 @@ onMounted(async () => {
       </aside>
 
       <article v-if="selectedCookbook" class="cookbook-detail">
-        <div>
-          <p class="section-label">{{ selectedCookbook.role }}</p>
-          <h4>{{ selectedCookbook.name }}</h4>
-          <p>{{ selectedCookbook.description || "Aucune description" }}</p>
+        <div class="cookbook-title-card">
+          <div>
+            <p class="section-label">{{ selectedCookbook.role }}</p>
+            <h4>{{ selectedCookbook.name }}</h4>
+            <p>{{ selectedCookbook.description || "Aucune description" }}</p>
+          </div>
+
+          <button
+              v-if="selectedCookbook.role === 'OWNER'"
+              class="danger-button"
+              type="button"
+              @click="removeCookbook"
+          >
+            Supprimer le cookbook
+          </button>
         </div>
 
         <p v-if="realtimeNotice" class="success-message">
@@ -448,27 +544,62 @@ onMounted(async () => {
           </form>
 
           <div class="cookbook-recipes">
-            <div v-for="recipe in cookbookRecipes" :key="recipe.id" class="cookbook-recipe">
-              <div>
-                <strong>{{ recipe.title }}</strong>
-                <span>
-                  {{ recipe.preparationTime + recipe.cookingTime }} min
-                  <template v-if="recipe.owner"> · {{ recipe.owner.displayName }}</template>
-                </span>
+            <div v-for="recipe in cookbookRecipes" :key="recipe.id" class="cookbook-recipe-wrapper">
+              <div
+                  class="cookbook-recipe"
+                  role="button"
+                  tabindex="0"
+                  @click="openRecipeDetails(recipe.id)"
+                  @keydown.enter.prevent="openRecipeDetails(recipe.id)"
+                  @keydown.space.prevent="openRecipeDetails(recipe.id)"
+              >
+                <div>
+                  <strong>{{ recipe.title }}</strong>
+                  <span>
+                    {{ recipe.preparationTime + recipe.cookingTime }} min · {{ recipe.portions }} portion{{ recipe.portions > 1 ? "s" : "" }}
+                  </span>
 
-                <div v-if="recipe.tags?.length" class="recipe-tags">
-                  <small v-for="tag in recipe.tags" :key="tag">{{ tag }}</small>
+                  <div v-if="recipe.tags?.length" class="recipe-tags">
+                    <small v-for="tag in recipe.tags" :key="tag">
+                      {{ tag }}
+                    </small>
+                  </div>
+                </div>
+
+                <div class="cookbook-recipe-actions">
+                  <button type="button" @click.stop="openRecipeDetails(recipe.id)">
+                    Voir détails
+                  </button>
+
+                  <button type="button" @click.stop="toggleRecipeComments(recipe.id)">
+                    {{ openedRecipeComments === recipe.id ? "Masquer" : "Commentaires" }}
+                  </button>
+
+                  <button
+                      v-if="canEditCookbook"
+                      class="danger-button"
+                      type="button"
+                      @click.stop="removeRecipe(recipe)"
+                  >
+                    Retirer
+                  </button>
                 </div>
               </div>
 
-              <button
-                  v-if="canEditCookbook"
-                  class="danger-button"
-                  type="button"
-                  @click="removeRecipe(recipe)"
-              >
-                Retirer
-              </button>
+              <div v-if="openedRecipeComments === recipe.id" class="recipe-comments-area">
+                <div class="recipe-comments-header">
+                  <div>
+                    <strong>Commentaires de la recette</strong>
+                    <span>{{ recipe.title }}</span>
+                  </div>
+                </div>
+
+                <RecipeCommentsPanel
+                    :recipe-id="recipe.id"
+                    :can-comment="canComment"
+                    :role="selectedCookbook.role"
+                />
+              </div>
             </div>
 
             <p v-if="!cookbookRecipes.length" class="recipe-info">
@@ -559,7 +690,8 @@ onMounted(async () => {
 .cookbook-form button,
 .member-form button,
 .recipe-filter-form button,
-.secondary-button {
+.secondary-button,
+.cookbook-recipe-actions button {
   border: 0;
   border-radius: 14px;
   padding: 12px 14px;
@@ -631,7 +763,11 @@ onMounted(async () => {
   gap: 20px;
 }
 
-.cookbook-detail > div:first-child {
+.cookbook-title-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
   padding: 18px;
   border: 1px solid #e2d2bd;
   border-radius: 22px;
@@ -648,12 +784,6 @@ onMounted(async () => {
   color: #5f5148;
 }
 
-.cookbook-block h5 {
-  margin: 0;
-  color: #2f241d;
-  font-size: 17px;
-}
-
 .cookbook-block {
   display: grid;
   gap: 14px;
@@ -661,6 +791,12 @@ onMounted(async () => {
   border: 1px solid #e2d2bd;
   border-radius: 22px;
   background: #fffdf8;
+}
+
+.cookbook-block h5 {
+  margin: 0;
+  color: #2f241d;
+  font-size: 17px;
 }
 
 .cookbook-block-header {
@@ -760,6 +896,67 @@ onMounted(async () => {
   font-weight: 900;
 }
 
+.cookbook-recipe-wrapper {
+  display: grid;
+  gap: 10px;
+}
+
+.cookbook-recipe {
+  cursor: pointer;
+}
+
+.cookbook-recipe:hover {
+  border-color: #d97706;
+  background: #fff7ed;
+}
+
+.cookbook-recipe:focus-visible {
+  outline: 3px solid rgba(217, 119, 6, 0.25);
+  outline-offset: 3px;
+}
+
+.cookbook-recipe-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.cookbook-recipe-actions .danger-button {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.recipe-comments-area {
+  margin-left: 16px;
+  padding: 14px;
+  border: 1px solid #decab0;
+  border-radius: 18px;
+  background: #fffaf2;
+  display: grid;
+  gap: 12px;
+}
+
+.recipe-comments-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.recipe-comments-header strong {
+  color: #2f241d;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.recipe-comments-header span {
+  color: #5f5148;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 @media (max-width: 1100px) {
   .cookbook-layout {
     grid-template-columns: 1fr;
@@ -775,11 +972,12 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
-  .cookbook-form,
-  .member-form,
-  .recipe-filter-form,
-  .cookbook-list {
-    grid-template-columns: 1fr;
+  .cookbook-block-header,
+  .member-item,
+  .cookbook-recipe,
+  .cookbook-title-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .cookbook-block-header,
@@ -787,6 +985,14 @@ onMounted(async () => {
   .cookbook-recipe {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .recipe-comments-area {
+    margin-left: 0;
+  }
+
+  .cookbook-recipe-actions {
+    justify-content: flex-start;
   }
 }
 </style>

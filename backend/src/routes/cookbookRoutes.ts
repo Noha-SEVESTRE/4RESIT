@@ -272,6 +272,101 @@ cookbookRouter.get("/:id", requireAuth, async (req, res, next) => {
     }
 });
 
+cookbookRouter.delete("/:id", requireAuth, async (req, res, next) => {
+    const client = await pool.connect();
+
+    try {
+        const authenticatedRequest = req as AuthenticatedRequest;
+
+        if (!authenticatedRequest.user) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const params = cookbookParamsSchema.parse(req.params);
+        const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
+
+        if (!accessRole) {
+            return res.status(404).json({
+                message: "Cookbook introuvable"
+            });
+        }
+
+        if (accessRole !== "OWNER") {
+            return res.status(403).json({
+                message: "Seul le propriétaire peut supprimer ce cookbook"
+            });
+        }
+
+        await client.query("BEGIN");
+
+        await client.query(
+            `DELETE FROM recipe_comments
+             WHERE recipe_id IN (
+                 SELECT id
+                 FROM recipes
+                 WHERE cookbook_id = $1
+             )`,
+            [params.id]
+        );
+
+        await client.query(
+            `UPDATE recipes
+             SET cookbook_id = NULL,
+                 updated_at = now()
+             WHERE cookbook_id = $1`,
+            [params.id]
+        );
+
+        await client.query(
+            `DELETE FROM cookbook_messages
+             WHERE cookbook_id = $1`,
+            [params.id]
+        );
+
+        await client.query(
+            `DELETE FROM cookbook_members
+             WHERE cookbook_id = $1`,
+            [params.id]
+        );
+
+        const result = await client.query(
+            `DELETE FROM cookbooks
+             WHERE id = $1
+                 RETURNING id`,
+            [params.id]
+        );
+
+        if (!result.rows[0]) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Cookbook introuvable"
+            });
+        }
+
+        await client.query("COMMIT");
+
+        return res.status(200).json({
+            message: "Cookbook supprimé"
+        });
+    } catch (error) {
+        await client.query("ROLLBACK");
+
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                message: "Identifiant de cookbook invalide",
+                fieldErrors: error.flatten().fieldErrors
+            });
+        }
+
+        return next(error);
+    } finally {
+        client.release();
+    }
+});
+
 cookbookRouter.post("/:id/members", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;

@@ -176,3 +176,12 @@ export function removeRecipeFromCookbook(token: string, cookbookId: string, reci
         }
     });
 }
+
+export function deleteCookbook(token: string, cookbookId: string) {
+    return request<MessageResponse>(`/cookbooks/${cookbookId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+}
