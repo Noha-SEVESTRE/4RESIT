@@ -28,6 +28,10 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("fr-FR");
 }
 
+function openRecipeDetails(recipeId: string) {
+  window.open(`${window.location.origin}/?recipeId=${recipeId}`, "_blank", "noopener,noreferrer");
+}
+
 async function loadData() {
   const token = getStoredToken();
 
@@ -167,13 +171,22 @@ onMounted(loadData);
     </p>
 
     <div v-else class="list">
-      <div v-for="mealPlan in mealPlans" :key="mealPlan.id" class="list-item">
+      <div
+          v-for="plan in mealPlans"
+          :key="plan.id"
+          class="list-item meal-plan-item"
+          role="button"
+          tabindex="0"
+          @click="openRecipeDetails(plan.recipe.id)"
+          @keydown.enter.prevent="openRecipeDetails(plan.recipe.id)"
+          @keydown.space.prevent="openRecipeDetails(plan.recipe.id)"
+      >
         <div>
-          <strong>{{ formatDate(mealPlan.plannedDate) }} · {{ mealPlan.mealType }}</strong>
-          <span>{{ mealPlan.recipe.title }}</span>
+          <strong>{{ formatDate(plan.plannedDate) }} · {{ plan.mealType }}</strong>
+          <span>{{ plan.recipe.title }}</span>
         </div>
 
-        <button class="delete-plan-button" type="button" @click="removeMealPlan(mealPlan)">
+        <button class="delete-plan-button" type="button" @click.stop="removeMealPlan(plan)">
           Retirer
         </button>
       </div>
@@ -289,6 +302,20 @@ onMounted(loadData);
 :deep(.list-item span) {
   color: #5f5148;
   font-weight: 700;
+}
+
+.meal-plan-item {
+  cursor: pointer;
+}
+
+.meal-plan-item:hover {
+  border-color: #d97706;
+  background: #fff7ed;
+}
+
+.meal-plan-item:focus-visible {
+  outline: 3px solid rgba(217, 119, 6, 0.25);
+  outline-offset: 3px;
 }
 
 @media (max-width: 900px) {
