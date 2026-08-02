@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { ApiError, getCurrentUser, loginUser, registerUser, startGitHubLogin, startGoogleLogin, type FieldErrors, type User } from "./services/authService";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
+import RecipeDetailsPage from "./components/RecipeDetailsPage.vue";
 import type { Recipe } from "./services/recipeService";
 import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
@@ -12,6 +13,7 @@ type ViewName = "login" | "register" | "dashboard";
 type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
 type FormErrors = Record<string, string>;
 
+const routeRecipeId = ref(new URLSearchParams(window.location.search).get("recipeId"));
 const currentView = ref<ViewName>("login");
 const currentPage = ref<PageName>("dashboard");
 const currentUser = ref<User | null>(null);
@@ -335,7 +337,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main v-if="currentView === 'login'" class="auth-page">
+  <RecipeDetailsPage
+      v-if="routeRecipeId"
+      :recipe-id="routeRecipeId"
+  />
+
+  <main v-else-if="currentView === 'login'" class="auth-page">
     <section class="auth-card">
       <div>
         <p class="eyebrow">SUPMEAL Pro</p>
@@ -552,6 +559,7 @@ onMounted(async () => {
               Créez des espaces partagés avec des membres et des rôles.
             </p>
           </article>
+
           <article class="panel">
             <div class="panel-header">
               <div>
