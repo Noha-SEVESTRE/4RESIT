@@ -11,7 +11,6 @@ import {
   type ExportedRecipe,
   type Recipe
 } from "../services/recipeService";
-import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
 import { getCookbooks, type Cookbook } from "../services/cookbookService";
 
 const emit = defineEmits<{
@@ -26,7 +25,6 @@ const maxTotalTime = ref("");
 const onlyFavorites = ref(false);
 const isLoading = ref(false);
 const errorMessage = ref("");
-const openedComments = ref<string | null>(null);
 const importInput = ref<HTMLInputElement | null>(null);
 const cookbooks = ref<Cookbook[]>([]);
 const selectedCookbookId = ref("");
@@ -41,10 +39,6 @@ function getStoredToken() {
       localStorage.getItem("supmeal_token") ??
       ""
   );
-}
-
-function toggleComments(recipeId: string) {
-  openedComments.value = openedComments.value === recipeId ? null : recipeId;
 }
 
 function buildExportFileName(recipe: Recipe) {
@@ -68,6 +62,10 @@ function downloadJsonFile(fileName: string, data: unknown) {
 
 function openImportFile() {
   importInput.value?.click();
+}
+
+function openRecipeDetails(recipeId: string) {
+  window.open(`${window.location.origin}/?recipeId=${recipeId}`, "_blank", "noopener,noreferrer");
 }
 
 async function loadCookbookOptions() {
@@ -302,7 +300,7 @@ onMounted(async () => {
     </p>
 
     <div v-else class="recipe-grid">
-      <article v-for="recipe in recipes" :key="recipe.id" class="recipe-card">
+      <article v-for="recipe in recipes" :key="recipe.id" class="recipe-card" role="button" tabindex="0" @click="openRecipeDetails(recipe.id)" @keydown.enter.prevent="openRecipeDetails(recipe.id)" @keydown.space.prevent="openRecipeDetails(recipe.id)">
         <div class="recipe-card-visual">
           <img
               v-if="recipe.imageUrl"
@@ -320,7 +318,7 @@ onMounted(async () => {
         <div class="recipe-card-top">
           <h3>{{ recipe.title }}</h3>
 
-          <button class="favorite-button" type="button" @click="toggleFavorite(recipe)">
+          <button class="favorite-button" type="button" @click.stop="toggleFavorite(recipe)">
             {{ recipe.isFavorite ? "★" : "☆" }}
           </button>
         </div>
@@ -342,27 +340,22 @@ onMounted(async () => {
         </div>
 
         <div class="recipe-actions">
-          <button type="button" @click="toggleComments(recipe.id)">
-            Commentaires
+          <button type="button" @click.stop="openRecipeDetails(recipe.id)">
+            Voir détails
           </button>
 
-          <button type="button" @click="exportCurrentRecipe(recipe)">
+          <button type="button" @click.stop="exportCurrentRecipe(recipe)">
             Exporter
           </button>
 
-          <button type="button" @click="editRecipe(recipe.id)">
+          <button type="button" @click.stop="editRecipe(recipe.id)">
             Modifier
           </button>
 
-          <button class="danger-button" type="button" @click="removeRecipe(recipe)">
+          <button class="danger-button" type="button" @click.stop="removeRecipe(recipe)">
             Supprimer
           </button>
         </div>
-
-        <RecipeCommentsPanel
-            v-if="openedComments === recipe.id"
-            :recipe-id="recipe.id"
-        />
       </article>
     </div>
   </section>
@@ -665,5 +658,14 @@ onMounted(async () => {
   .recipe-card {
     min-height: auto;
   }
+}
+
+.recipe-card {
+  cursor: pointer;
+}
+
+.recipe-card:focus-visible {
+  outline: 3px solid rgba(217, 119, 6, 0.25);
+  outline-offset: 3px;
 }
 </style>
