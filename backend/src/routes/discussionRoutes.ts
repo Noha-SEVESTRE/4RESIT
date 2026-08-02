@@ -6,6 +6,8 @@ import { emitCookbookMessageCreated, emitCookbookMessageDeleted } from "../realt
 
 export const discussionRouter = Router();
 
+type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
+
 const recipeCommentParamsSchema = z.object({
     recipeId: z.string().uuid("L'identifiant de la recette est invalide")
 });
@@ -54,15 +56,23 @@ function formatMessage(row: any) {
     };
 }
 
+function canComment(role: CookbookRole | null) {
+    return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
+}
+
+function canDeleteDiscussionItem(role: CookbookRole | null, isAuthor: boolean) {
+    return role === "OWNER" || ((role === "EDITOR" || role === "COMMENTATOR") && isAuthor);
+}
+
 async function getRecipeAccess(recipeId: string, userId: string) {
     const result = await pool.query(
         `SELECT r.id,
-            r.owner_id,
-            r.cookbook_id,
-            cm.role AS cookbook_role
-     FROM recipes r
-     LEFT JOIN cookbook_members cm ON cm.cookbook_id = r.cookbook_id AND cm.user_id = $2
-     WHERE r.id = $1`,
+                r.cookbook_id,
+                cm.role AS cookbook_role
+         FROM recipes r
+         JOIN cookbook_members cm ON cm.cookbook_id = r.cookbook_id AND cm.user_id = $2
+         WHERE r.id = $1
+           AND r.cookbook_id IS NOT NULL`,
         [recipeId, userId]
     );
 
@@ -72,36 +82,21 @@ async function getRecipeAccess(recipeId: string, userId: string) {
         return null;
     }
 
-    const isOwner = recipe.owner_id === userId;
-    const isCookbookMember = Boolean(recipe.cookbook_role);
-
-    if (!isOwner && !isCookbookMember) {
-        return null;
-    }
-
     return {
-        isOwner,
-        cookbookRole: recipe.cookbook_role
+        cookbookId: recipe.cookbook_id as string,
+        cookbookRole: recipe.cookbook_role as CookbookRole
     };
 }
 
 async function getCookbookAccess(cookbookId: string, userId: string) {
     const result = await pool.query(
         `SELECT role
-     FROM cookbook_members
-     WHERE cookbook_id = $1 AND user_id = $2`,
+         FROM cookbook_members
+         WHERE cookbook_id = $1 AND user_id = $2`,
         [cookbookId, userId]
     );
 
-    return result.rows[0]?.role ?? null;
-}
-
-function canComment(role: string | null) {
-    return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
-}
-
-function canDeleteDiscussionItem(role: string | null, isAuthor: boolean) {
-    return role === "OWNER" || ((role === "EDITOR" || role === "COMMENTATOR") && isAuthor);
+    return (result.rows[0]?.role ?? null) as CookbookRole | null;
 }
 
 discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res, next) => {
@@ -119,21 +114,21 @@ discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res
 
         if (!access) {
             return res.status(404).json({
-                message: "Recette introuvable"
+                message: "Recette introuvable dans un cookbook accessible"
             });
         }
 
         const result = await pool.query(
             `SELECT rc.id,
-              rc.content,
-              rc.created_at,
-              u.id AS user_id,
-              u.email,
-              u.display_name
-       FROM recipe_comments rc
-       JOIN users u ON u.id = rc.user_id
-       WHERE rc.recipe_id = $1
-       ORDER BY rc.created_at ASC`,
+                    rc.content,
+                    rc.created_at,
+                    u.id AS user_id,
+                    u.email,
+                    u.display_name
+             FROM recipe_comments rc
+                      JOIN users u ON u.id = rc.user_id
+             WHERE rc.recipe_id = $1
+             ORDER BY rc.created_at ASC`,
             [params.recipeId]
         );
 
@@ -168,40 +163,38 @@ discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, re
 
         if (!access) {
             return res.status(404).json({
-                message: "Recette introuvable"
+                message: "Recette introuvable dans un cookbook accessible"
             });
         }
 
-        if (!canComment(access.cookbookRole ?? (access.isOwner ? "OWNER" : null))) {
+        if (!canComment(access.cookbookRole)) {
             return res.status(403).json({
-                message: "Vous ne pouvez pas commenter cette recette"
+                message: "Votre rôle ne permet pas de commenter cette recette"
             });
         }
 
         const result = await pool.query(
             `INSERT INTO recipe_comments (recipe_id, user_id, content)
-       VALUES ($1, $2, $3)
-       RETURNING id`,
+             VALUES ($1, $2, $3)
+                 RETURNING id`,
             [params.recipeId, authenticatedRequest.user.userId, data.content]
         );
 
         const commentResult = await pool.query(
             `SELECT rc.id,
-              rc.content,
-              rc.created_at,
-              u.id AS user_id,
-              u.email,
-              u.display_name
-       FROM recipe_comments rc
-       JOIN users u ON u.id = rc.user_id
-       WHERE rc.id = $1`,
+                    rc.content,
+                    rc.created_at,
+                    u.id AS user_id,
+                    u.email,
+                    u.display_name
+             FROM recipe_comments rc
+                      JOIN users u ON u.id = rc.user_id
+             WHERE rc.id = $1`,
             [result.rows[0].id]
         );
 
-        const comment = formatComment(commentResult.rows[0]);
-
         return res.status(201).json({
-            comment
+            comment: formatComment(commentResult.rows[0])
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -230,14 +223,14 @@ discussionRouter.delete("/recipes/:recipeId/comments/:commentId", requireAuth, a
 
         if (!access) {
             return res.status(404).json({
-                message: "Recette introuvable"
+                message: "Recette introuvable dans un cookbook accessible"
             });
         }
 
         const commentResult = await pool.query(
             `SELECT id, user_id
-       FROM recipe_comments
-       WHERE id = $1 AND recipe_id = $2`,
+             FROM recipe_comments
+             WHERE id = $1 AND recipe_id = $2`,
             [params.commentId, params.recipeId]
         );
 
@@ -249,7 +242,9 @@ discussionRouter.delete("/recipes/:recipeId/comments/:commentId", requireAuth, a
             });
         }
 
-        if (!canDeleteDiscussionItem(access.cookbookRole ?? (access.isOwner ? "OWNER" : null), comment.user_id === authenticatedRequest.user.userId)) {
+        const isAuthor = comment.user_id === authenticatedRequest.user.userId;
+
+        if (!canDeleteDiscussionItem(access.cookbookRole, isAuthor)) {
             return res.status(403).json({
                 message: "Vous ne pouvez pas supprimer ce commentaire"
             });
@@ -257,7 +252,7 @@ discussionRouter.delete("/recipes/:recipeId/comments/:commentId", requireAuth, a
 
         await pool.query(
             `DELETE FROM recipe_comments
-       WHERE id = $1`,
+             WHERE id = $1`,
             [params.commentId]
         );
 
@@ -297,15 +292,15 @@ discussionRouter.get("/cookbooks/:cookbookId/messages", requireAuth, async (req,
 
         const result = await pool.query(
             `SELECT cm.id,
-              cm.content,
-              cm.created_at,
-              u.id AS user_id,
-              u.email,
-              u.display_name
-       FROM cookbook_messages cm
-       JOIN users u ON u.id = cm.user_id
-       WHERE cm.cookbook_id = $1
-       ORDER BY cm.created_at ASC`,
+                    cm.content,
+                    cm.created_at,
+                    u.id AS user_id,
+                    u.email,
+                    u.display_name
+             FROM cookbook_messages cm
+                      JOIN users u ON u.id = cm.user_id
+             WHERE cm.cookbook_id = $1
+             ORDER BY cm.created_at ASC`,
             [params.cookbookId]
         );
 
@@ -346,27 +341,27 @@ discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req
 
         if (!canComment(accessRole)) {
             return res.status(403).json({
-                message: "Vous ne pouvez pas envoyer de message dans ce cookbook"
+                message: "Votre rôle ne permet pas d'envoyer un message dans ce cookbook"
             });
         }
 
         const result = await pool.query(
             `INSERT INTO cookbook_messages (cookbook_id, user_id, content)
-       VALUES ($1, $2, $3)
-       RETURNING id`,
+             VALUES ($1, $2, $3)
+                 RETURNING id`,
             [params.cookbookId, authenticatedRequest.user.userId, data.content]
         );
 
         const messageResult = await pool.query(
             `SELECT cm.id,
-              cm.content,
-              cm.created_at,
-              u.id AS user_id,
-              u.email,
-              u.display_name
-       FROM cookbook_messages cm
-       JOIN users u ON u.id = cm.user_id
-       WHERE cm.id = $1`,
+                    cm.content,
+                    cm.created_at,
+                    u.id AS user_id,
+                    u.email,
+                    u.display_name
+             FROM cookbook_messages cm
+                      JOIN users u ON u.id = cm.user_id
+             WHERE cm.id = $1`,
             [result.rows[0].id]
         );
 
@@ -410,8 +405,8 @@ discussionRouter.delete("/cookbooks/:cookbookId/messages/:messageId", requireAut
 
         const messageResult = await pool.query(
             `SELECT id, user_id
-       FROM cookbook_messages
-       WHERE id = $1 AND cookbook_id = $2`,
+             FROM cookbook_messages
+             WHERE id = $1 AND cookbook_id = $2`,
             [params.messageId, params.cookbookId]
         );
 
@@ -423,7 +418,9 @@ discussionRouter.delete("/cookbooks/:cookbookId/messages/:messageId", requireAut
             });
         }
 
-        if (!canDeleteDiscussionItem(accessRole, message.user_id === authenticatedRequest.user.userId)) {
+        const isAuthor = message.user_id === authenticatedRequest.user.userId;
+
+        if (!canDeleteDiscussionItem(accessRole, isAuthor)) {
             return res.status(403).json({
                 message: "Vous ne pouvez pas supprimer ce message"
             });
