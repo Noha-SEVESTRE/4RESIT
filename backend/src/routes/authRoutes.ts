@@ -55,6 +55,26 @@ function formatValidationError(error: z.ZodError) {
     };
 }
 
+const maxLoginAttempts = 5;
+
+function isAccountLocked(lockedUntil: string | Date | null) {
+    if (!lockedUntil) {
+        return false;
+    }
+
+    return new Date(lockedUntil).getTime() > Date.now();
+}
+
+function getRemainingLockMinutes(lockedUntil: string | Date | null) {
+    if (!lockedUntil) {
+        return 0;
+    }
+
+    const remainingMilliseconds = new Date(lockedUntil).getTime() - Date.now();
+
+    return Math.max(1, Math.ceil(remainingMilliseconds / 60000));
+}
+
 authRouter.post("/register", async (req, res, next) => {
     try {
         const data = registerSchema.parse(req.body);
@@ -106,7 +126,15 @@ authRouter.post("/login", async (req, res, next) => {
         const data = loginSchema.parse(req.body);
 
         const result = await pool.query(
-            `SELECT id, email, password_hash, display_name, dietary_preferences, default_portions, created_at
+            `SELECT id,
+                    email,
+                    password_hash,
+                    display_name,
+                    dietary_preferences,
+                    default_portions,
+                    failed_login_attempts,
+                    locked_until,
+                    created_at
              FROM users
              WHERE email = $1`,
             [data.email]
@@ -115,19 +143,30 @@ authRouter.post("/login", async (req, res, next) => {
         const userRow = result.rows[0];
 
         if (!userRow) {
-            return res.status(404).json({
-                message: "Aucun compte ne correspond à cette adresse email",
+            return res.status(401).json({
+                message: "Email ou mot de passe incorrect",
                 fieldErrors: {
-                    email: ["Aucun compte ne correspond à cette adresse email"]
+                    email: ["Email ou mot de passe incorrect"]
+                }
+            });
+        }
+
+        if (isAccountLocked(userRow.locked_until)) {
+            const remainingMinutes = getRemainingLockMinutes(userRow.locked_until);
+
+            return res.status(423).json({
+                message: `Compte temporairement verrouillé. Réessaie dans ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""}`,
+                fieldErrors: {
+                    password: [`Trop de tentatives. Réessaie dans ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""}`]
                 }
             });
         }
 
         if (!userRow.password_hash) {
             return res.status(401).json({
-                message: "Ce compte utilise une connexion OAuth2",
+                message: "Email ou mot de passe incorrect",
                 fieldErrors: {
-                    password: ["Utilisez Google ou GitHub pour vous connecter à ce compte"]
+                    password: ["Email ou mot de passe incorrect"]
                 }
             });
         }
@@ -135,10 +174,38 @@ authRouter.post("/login", async (req, res, next) => {
         const passwordIsValid = await verifyPassword(data.password, userRow.password_hash);
 
         if (!passwordIsValid) {
+            const nextAttempts = Number(userRow.failed_login_attempts ?? 0) + 1;
+
+            if (nextAttempts >= maxLoginAttempts) {
+                await pool.query(
+                    `UPDATE users
+             SET failed_login_attempts = $1,
+                 locked_until = now() + interval '5 minutes',
+                 updated_at = now()
+             WHERE id = $2`,
+                    [maxLoginAttempts, userRow.id]
+                );
+
+                return res.status(423).json({
+                    message: "Compte temporairement verrouillé. Réessaie dans 5 minutes",
+                    fieldErrors: {
+                        password: ["Trop de tentatives. Réessaie dans 5 minutes"]
+                    }
+                });
+            }
+
+            await pool.query(
+                `UPDATE users
+         SET failed_login_attempts = $1,
+             updated_at = now()
+         WHERE id = $2`,
+                [nextAttempts, userRow.id]
+            );
+
             return res.status(401).json({
                 message: "Mot de passe incorrect",
                 fieldErrors: {
-                    password: ["Mot de passe incorrect"]
+                    password: [`Mot de passe incorrect. Tentative ${nextAttempts}/${maxLoginAttempts}`]
                 }
             });
         }
@@ -148,6 +215,8 @@ authRouter.post("/login", async (req, res, next) => {
             userId: user.id,
             email: user.email
         });
+
+        await pool.query(`UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = $1`, [userRow.id]);
 
         return res.status(200).json({
             token,
