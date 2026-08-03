@@ -25,6 +25,11 @@ export type ChangePasswordPayload = {
     newPasswordConfirmation: string;
 };
 
+export type ChangeEmailPayload = {
+    email: string;
+    currentPassword: string;
+};
+
 type UserResponse = {
     user: User;
 };
@@ -82,6 +87,17 @@ export function getUserSecurity(token: string) {
 
 export function changePassword(token: string, payload: ChangePasswordPayload) {
     return request<MessageResponse>("/users/me/password", {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+export function changeEmail(token: string, payload: ChangeEmailPayload) {
+    return request<UserResponse & MessageResponse>("/users/me/email", {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
