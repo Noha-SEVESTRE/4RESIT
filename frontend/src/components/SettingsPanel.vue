@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { ApiError, type FieldErrors, type User } from "../services/authService";
-import { changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
+import { changeEmail, changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
 import DataImportExportPanel from "./DataImportExportPanel.vue";
 
 const emit = defineEmits<{
@@ -20,6 +20,7 @@ const security = ref<UserSecurity | null>(null);
 const currentPassword = ref("");
 const newPassword = ref("");
 const newPasswordConfirmation = ref("");
+const emailPassword = ref("");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const isPasswordSaving = ref(false);
@@ -27,7 +28,11 @@ const errorMessage = ref("");
 const successMessage = ref("");
 const passwordErrorMessage = ref("");
 const passwordSuccessMessage = ref("");
+const emailErrorMessage = ref("");
+const emailSuccessMessage = ref("");
 const passwordErrors = ref<FormErrors>({});
+const emailErrors = ref<FormErrors>({});
+const isEmailSaving = ref(false);
 
 function getStoredToken() {
   return (
@@ -66,6 +71,18 @@ function applyFieldErrors(fieldErrors: FieldErrors) {
   passwordErrors.value = nextErrors;
 }
 
+function applyEmailFieldErrors(fieldErrors: FieldErrors) {
+  const nextErrors: FormErrors = {};
+
+  Object.entries(fieldErrors).forEach(([field, messages]) => {
+    if (messages?.[0]) {
+      nextErrors[field] = messages[0];
+    }
+  });
+
+  emailErrors.value = nextErrors;
+}
+
 function parseAllergies() {
   return allergiesText.value
       .split(",")
@@ -78,6 +95,11 @@ function resetPasswordForm() {
   newPassword.value = "";
   newPasswordConfirmation.value = "";
   passwordErrors.value = {};
+}
+
+function resetEmailForm() {
+  emailPassword.value = "";
+  emailErrors.value = {};
 }
 
 async function loadSettings() {
@@ -93,6 +115,8 @@ async function loadSettings() {
   successMessage.value = "";
   passwordErrorMessage.value = "";
   passwordSuccessMessage.value = "";
+  emailErrorMessage.value = "";
+  emailSuccessMessage.value = "";
 
   try {
     const [preferencesResponse, securityResponse] = await Promise.all([
@@ -150,6 +174,65 @@ async function submitSettings() {
     errorMessage.value = error instanceof Error ? error.message : "Impossible d'enregistrer les paramètres";
   } finally {
     isSaving.value = false;
+  }
+}
+
+async function submitEmail() {
+  const token = getStoredToken();
+
+  if (!token) {
+    emailErrorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
+  emailErrors.value = {};
+  emailErrorMessage.value = "";
+  emailSuccessMessage.value = "";
+
+  if (!email.value.trim()) {
+    emailErrors.value.email = "L'adresse email est obligatoire";
+  }
+
+  if (!emailPassword.value) {
+    emailErrors.value.currentPassword = "Le mot de passe actuel est obligatoire";
+  }
+
+  if (Object.keys(emailErrors.value).length) {
+    return;
+  }
+
+  isEmailSaving.value = true;
+
+  try {
+    const response = await changeEmail(token, {
+      email: email.value.trim(),
+      currentPassword: emailPassword.value
+    });
+
+    fillForm(response.user);
+    emit("updated", response.user);
+
+    if (security.value) {
+      security.value = {
+        ...security.value,
+        email: response.user.email
+      };
+    }
+
+    resetEmailForm();
+    emailSuccessMessage.value = response.message;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      applyEmailFieldErrors(error.fieldErrors);
+
+      if (!Object.keys(error.fieldErrors).length) {
+        emailErrorMessage.value = error.message;
+      }
+    } else {
+      emailErrorMessage.value = "Impossible de modifier l'email";
+    }
+  } finally {
+    isEmailSaving.value = false;
   }
 }
 
@@ -230,14 +313,40 @@ onMounted(loadSettings);
           <h3>Informations de connexion</h3>
         </div>
 
-        <div class="settings-form">
+        <form v-if="security?.canChangePassword" class="settings-form" @submit.prevent="submitEmail">
+          <label>
+            Email
+            <input v-model="email" type="email" placeholder="email@supmeal.fr">
+            <span v-if="emailErrors.email" class="field-error">{{ emailErrors.email }}</span>
+          </label>
+
+          <label>
+            Mot de passe actuel
+            <input v-model="emailPassword" type="password" placeholder="Votre mot de passe actuel">
+            <span v-if="emailErrors.currentPassword" class="field-error">{{ emailErrors.currentPassword }}</span>
+          </label>
+
+          <p v-if="emailErrorMessage" class="settings-error">
+            {{ emailErrorMessage }}
+          </p>
+
+          <p v-if="emailSuccessMessage" class="settings-success">
+            {{ emailSuccessMessage }}
+          </p>
+
+          <button type="submit" :disabled="isEmailSaving">
+            {{ isEmailSaving ? "Modification..." : "Modifier l'email" }}
+          </button>
+        </form>
+
+        <div v-else class="settings-form">
           <label>
             Email
             <input v-model="email" type="email" disabled>
           </label>
 
-          <p v-if="security && !security.canChangePassword" class="settings-warning">
-            Ce compte utilise une connexion OAuth2. L'email et le mot de passe sont gérés par le fournisseur externe.
+          <p class="settings-warning">
+            Ce compte utilise une connexion OAuth2.
           </p>
         </div>
       </section>

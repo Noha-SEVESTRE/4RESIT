@@ -31,6 +31,18 @@ const passwordSchema = z.object({
     message: "Les mots de passe ne correspondent pas"
 });
 
+const emailSchema = z.object({
+    email: z.string()
+        .trim()
+        .min(1, "L'adresse email est obligatoire")
+        .email("L'adresse email n'est pas valide")
+        .max(255, "L'adresse email est trop longue")
+        .transform((value) => value.toLowerCase()),
+    currentPassword: z.string()
+        .min(1, "Le mot de passe actuel est obligatoire")
+        .max(120, "Le mot de passe actuel est trop long")
+});
+
 function formatUser(row: any) {
     return {
         id: row.id,
@@ -189,6 +201,92 @@ userRouter.get("/me/security", requireAuth, async (req, res, next) => {
             }
         });
     } catch (error) {
+        return next(error);
+    }
+});
+
+userRouter.patch("/me/email", requireAuth, async (req, res, next) => {
+    try {
+        const userId = getAuthenticatedUserId(req as AuthenticatedRequest);
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        const data = emailSchema.parse(req.body);
+
+        const currentResult = await pool.query(
+            `SELECT id, email, password_hash
+             FROM users
+             WHERE id = $1`,
+            [userId]
+        );
+
+        const currentUser = currentResult.rows[0];
+
+        if (!currentUser) {
+            return res.status(404).json({
+                message: "Utilisateur introuvable"
+            });
+        }
+
+        if (!currentUser.password_hash) {
+            return res.status(403).json({
+                message: "Ce compte utilise une connexion OAuth2, l'email est géré par le fournisseur externe",
+                fieldErrors: {
+                    email: ["L'email n'est pas modifiable pour ce compte"]
+                }
+            });
+        }
+
+        const currentPasswordIsValid = await verifyPassword(data.currentPassword, currentUser.password_hash);
+
+        if (!currentPasswordIsValid) {
+            return res.status(400).json({
+                message: "Mot de passe actuel incorrect",
+                fieldErrors: {
+                    currentPassword: ["Mot de passe actuel incorrect"]
+                }
+            });
+        }
+
+        const duplicateResult = await pool.query(
+            `SELECT id
+             FROM users
+             WHERE email = $1
+               AND id <> $2`,
+            [data.email, userId]
+        );
+
+        if (duplicateResult.rows[0]) {
+            return res.status(409).json({
+                message: "Cette adresse email est déjà utilisée",
+                fieldErrors: {
+                    email: ["Cette adresse email est déjà utilisée"]
+                }
+            });
+        }
+
+        const result = await pool.query(
+            `UPDATE users
+             SET email = $1,
+                 updated_at = now()
+             WHERE id = $2
+             RETURNING id, email, display_name, dietary_preferences, default_portions, created_at, updated_at`,
+            [data.email, userId]
+        );
+
+        return res.status(200).json({
+            message: "Email modifié",
+            user: formatUser(result.rows[0])
+        });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json(formatValidationError(error));
+        }
+
         return next(error);
     }
 });
