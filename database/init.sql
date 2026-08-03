@@ -7,6 +7,8 @@ CREATE TABLE users (
                        display_name VARCHAR(120) NOT NULL,
                        dietary_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
                        default_portions INTEGER NOT NULL DEFAULT 2,
+                       failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+                       locked_until TIMESTAMP,
                        created_at TIMESTAMP NOT NULL DEFAULT now(),
                        updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
