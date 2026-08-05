@@ -13,6 +13,8 @@ import { discussionRouter } from "./routes/discussionRoutes";
 import { recipeImportExportRouter } from "./routes/recipeImportExportRoutes";
 import { oauthRouter } from "./routes/oauthRoutes";
 import { dataImportExportRouter } from "./routes/dataImportExportRoutes";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 
 export const app = express();
 
@@ -20,6 +22,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 app.use(morgan("dev"));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/api/health", (_req, res) => {
     res.status(200).json({
