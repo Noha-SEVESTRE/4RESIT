@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { getRecipes, type Recipe } from "../services/recipeService";
 import { createMealPlan, deleteMealPlan, getMealPlans, type MealPlan } from "../services/mealPlanService";
 import { getCookbooks, getCookbookRecipes } from "../services/cookbookService";
+import { getStoredToken } from "../utils/authToken";
 
 const recipes = ref<Recipe[]>([]);
 const mealPlans = ref<MealPlan[]>([]);
@@ -23,16 +24,6 @@ const selectedRecipe = computed(() =>
 const canShareWithCookbook = computed(() =>
     Boolean(selectedRecipe.value?.cookbookId)
 );
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("fr-FR");

@@ -1,17 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import {
-  addRecipeToFavorites,
-  deleteRecipe,
-  exportRecipe,
-  getRecipe,
-  getRecipes,
-  importRecipe,
-  removeRecipeFromFavorites,
-  type ExportedRecipe,
-  type Recipe
-} from "../services/recipeService";
+import {addRecipeToFavorites, deleteRecipe, exportRecipe, getRecipe, getRecipes, importRecipe, removeRecipeFromFavorites, type ExportedRecipe, type Recipe} from "../services/recipeService";
 import { getCookbooks, type Cookbook } from "../services/cookbookService";
+import { getStoredToken } from "../utils/authToken";
 
 const emit = defineEmits<{
   edit: [recipe: Recipe];
@@ -30,16 +21,6 @@ const cookbooks = ref<Cookbook[]>([]);
 const selectedCookbookId = ref("");
 
 const hasRecipes = computed(() => recipes.value.length > 0);
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function buildExportFileName(recipe: Recipe) {
   return `${recipe.title.toLowerCase().replaceAll(" ", "-")}-supmeal.json`;

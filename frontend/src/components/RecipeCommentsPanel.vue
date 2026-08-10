@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { getCurrentUser, type User } from "../services/authService";
+import { getStoredToken } from "../utils/authToken";
 
 type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
 
@@ -36,16 +37,6 @@ const errorMessage = ref("");
 const canWrite = computed(() => {
   return props.canComment && props.role !== "READER";
 });
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("fr-FR", {

@@ -1,22 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { exportAllData, importAllData, type FullDataExport } from "../services/dataService";
+import { getStoredToken } from "../utils/authToken";
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const isExporting = ref(false);
 const isImporting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function buildExportFileName() {
   const date = new Date().toISOString().slice(0, 10);

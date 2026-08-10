@@ -3,10 +3,10 @@ import { z } from "zod";
 import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { emitCookbookUpdated } from "../realtime/socket";
+import {cookbookRoleSchema, getCookbookAccess, type CookbookRole} from "../utils/cookbookAccess";
 
 export const cookbookRouter = Router();
 
-const roleSchema = z.enum(["OWNER", "EDITOR", "READER", "COMMENTATOR"]);
 const editableRoleSchema = z.enum(["EDITOR", "READER", "COMMENTATOR"]);
 
 const createCookbookSchema = z.object({
@@ -39,8 +39,6 @@ const cookbookRecipesQuerySchema = z.object({
     ingredient: z.string().trim().optional(),
     maxTotalTime: z.coerce.number().int().min(0).max(2880).optional()
 });
-
-type CookbookRole = z.infer<typeof roleSchema>;
 
 function canEditCookbook(role: CookbookRole) {
     return role === "OWNER" || role === "EDITOR";
@@ -92,23 +90,6 @@ function formatCookbookRecipe(row: any) {
         updatedAt: row.updated_at,
         cookbookId: row.cookbook_id
     };
-}
-
-async function getCookbookAccess(cookbookId: string, userId: string) {
-    const result = await pool.query(
-        `SELECT role
-     FROM cookbook_members
-     WHERE cookbook_id = $1 AND user_id = $2`,
-        [cookbookId, userId]
-    );
-
-    const role = result.rows[0]?.role;
-
-    if (!role) {
-        return null;
-    }
-
-    return roleSchema.parse(role);
 }
 
 cookbookRouter.get("/", requireAuth, async (req, res, next) => {

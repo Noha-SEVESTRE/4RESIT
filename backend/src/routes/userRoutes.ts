@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { hashPassword, verifyPassword } from "../utils/password";
+import { createStrongPasswordSchema } from "../utils/passwordValidation";
 
 export const userRouter = Router();
 
@@ -20,9 +21,7 @@ const passwordSchema = z.object({
     currentPassword: z.string()
         .min(1, "Le mot de passe actuel est obligatoire")
         .max(120, "Le mot de passe actuel est trop long"),
-    newPassword: z.string()
-        .min(8, "Le nouveau mot de passe doit contenir au moins 8 caractères")
-        .max(120, "Le nouveau mot de passe est trop long"),
+    newPassword: createStrongPasswordSchema("Le nouveau mot de passe"),
     newPasswordConfirmation: z.string()
         .min(1, "La confirmation du mot de passe est obligatoire")
         .max(120, "La confirmation du mot de passe est trop longue")
