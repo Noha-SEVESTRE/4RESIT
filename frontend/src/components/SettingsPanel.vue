@@ -527,7 +527,8 @@ onMounted(loadSettings);
   color: #5f5148;
 }
 
-.settings-form button {
+.settings-form button,
+.secondary-button {
   border: 0;
   border-radius: 15px;
   padding: 12px 16px;
@@ -535,6 +536,12 @@ onMounted(loadSettings);
   cursor: pointer;
   background: #f97316;
   color: white;
+}
+
+.secondary-button {
+  background: #f2ebe3;
+  color: #2f241d;
+  box-shadow: none;
 }
 
 .field-error {
@@ -576,7 +583,7 @@ onMounted(loadSettings);
   font-weight: 800;
 }
 
-:deep() {
+:deep(.data-panel) {
   border: 1px solid #decab0;
   border-radius: 26px;
   background: #fffdf8;
@@ -602,7 +609,7 @@ onMounted(loadSettings);
 
   .settings-header,
   .settings-card,
-  :deep() {
+  :deep(.data-panel) {
     padding: 20px;
   }
 }
