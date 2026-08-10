@@ -5,6 +5,10 @@ import { createToken } from "../utils/token";
 
 export const oauthRouter = Router();
 
+const oauthStates = new Map<string, number>();
+
+const OAUTH_STATE_TTL = 10 * 60 * 1000;
+
 type GitHubUser = {
     id: number;
     login: string;
@@ -46,6 +50,29 @@ function buildFrontendRedirect(path: string) {
     const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:8081";
 
     return `${frontendUrl}${path}`;
+}
+
+function createOAuthState() {
+    const state = randomBytes(16).toString("hex");
+
+    oauthStates.set(
+        state,
+        Date.now() + OAUTH_STATE_TTL
+    );
+
+    return state;
+}
+
+function validateOAuthState(state: string) {
+    const expiresAt = oauthStates.get(state);
+
+    if (!expiresAt) {
+        return false;
+    }
+
+    oauthStates.delete(state);
+
+    return expiresAt > Date.now();
 }
 
 async function getGitHubAccessToken(code: string) {
@@ -149,7 +176,7 @@ async function getGoogleUser(accessToken: string) {
 
 oauthRouter.get("/github", (_req, res, next) => {
     try {
-        const state = randomBytes(16).toString("hex");
+        const state = createOAuthState();
         const clientId = getRequiredEnv("GITHUB_CLIENT_ID");
         const callbackUrl = getRequiredEnv("GITHUB_CALLBACK_URL");
 
@@ -170,6 +197,12 @@ oauthRouter.get("/github/callback", async (req, res, next) => {
     const client = await pool.connect();
 
     try {
+        const state = String(req.query.state ?? "");
+
+        if (!validateOAuthState(state)) {
+            return res.redirect(buildFrontendRedirect("/?oauth=invalid_state"));
+        }
+
         const code = String(req.query.code ?? "");
 
         if (!code) {
@@ -266,7 +299,7 @@ oauthRouter.get("/github/callback", async (req, res, next) => {
 
 oauthRouter.get("/google", (_req, res, next) => {
     try {
-        const state = randomBytes(16).toString("hex");
+        const state = createOAuthState();
         const clientId = getRequiredEnv("GOOGLE_CLIENT_ID");
         const callbackUrl = getRequiredEnv("GOOGLE_CALLBACK_URL");
 
@@ -289,6 +322,12 @@ oauthRouter.get("/google/callback", async (req, res, next) => {
     const client = await pool.connect();
 
     try {
+        const state = String(req.query.state ?? "");
+
+        if (!validateOAuthState(state)) {
+            return res.redirect(buildFrontendRedirect("/?oauth=invalid_state"));
+        }
+
         const code = String(req.query.code ?? "");
 
         if (!code) {
