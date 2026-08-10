@@ -5,6 +5,7 @@ import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddle
 import { hashPassword, verifyPassword } from "../utils/password";
 import { createToken } from "../utils/token";
 import { createStrongPasswordSchema } from "../utils/passwordValidation";
+import { formatUser } from "../utils/userFormatter";
 
 export const authRouter = Router();
 
@@ -34,17 +35,6 @@ const loginSchema = z.object({
         .min(1, "Le mot de passe est obligatoire")
         .max(120, "Le mot de passe est trop long")
 });
-
-function formatUser(row: any) {
-    return {
-        id: row.id,
-        email: row.email,
-        displayName: row.display_name,
-        dietaryPreferences: row.dietary_preferences,
-        defaultPortions: row.default_portions,
-        createdAt: row.created_at
-    };
-}
 
 function formatValidationError(error: z.ZodError) {
     return {
@@ -232,12 +222,6 @@ authRouter.post("/login", async (req, res, next) => {
 authRouter.get("/me", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const result = await pool.query(
             `SELECT id, email, display_name, dietary_preferences, default_portions, created_at

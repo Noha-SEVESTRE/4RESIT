@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import RecipeDetailsPanel from "./RecipeDetailsPanel.vue";
 import { getRecipe, type Recipe } from "../services/recipeService";
 import { getStoredToken } from "../utils/authToken";
+import {getErrorMessage} from "../utils/error.ts";
 
 const props = defineProps<{
   recipeId: string;
@@ -26,7 +27,7 @@ async function loadRecipe() {
     recipe.value = response.recipe;
     document.title = `${response.recipe.title} - SUPMEAL`;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger la recette.";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger la recette.")
     document.title = "Détail recette - SUPMEAL";
   } finally {
     isLoading.value = false;
@@ -115,7 +116,7 @@ onMounted(loadRecipe);
   line-height: 1.5;
 }
 
-.recipe-detail-page :deep(.recipe-details-panel) {
+.recipe-detail-page :deep {
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
@@ -141,19 +142,6 @@ onMounted(loadRecipe);
   border: 1px solid #fecaca;
   background: #fef2f2;
   color: #991b1b;
-}
-
-.secondary-button {
-  border: 1px solid #e2d2bd;
-  border-radius: 999px;
-  padding: 8px 16px;
-  min-height: 36px;
-  font-size: 14px;
-  font-weight: 900;
-  cursor: pointer;
-  background: #f2ebe3;
-  color: #2f241d;
-  box-shadow: none;
 }
 
 @media (max-width: 800px) {

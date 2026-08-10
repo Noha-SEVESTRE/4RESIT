@@ -96,12 +96,6 @@ cookbookRouter.get("/", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const result = await pool.query(
             `SELECT c.id,
               c.name,
@@ -133,12 +127,6 @@ cookbookRouter.post("/", requireAuth, async (req, res, next) => {
 
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const data = createCookbookSchema.parse(req.body);
 
@@ -193,12 +181,6 @@ cookbookRouter.post("/", requireAuth, async (req, res, next) => {
 cookbookRouter.get("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = cookbookParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
@@ -259,12 +241,6 @@ cookbookRouter.delete("/:id", requireAuth, async (req, res, next) => {
 
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = cookbookParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
@@ -353,12 +329,6 @@ cookbookRouter.post("/:id/members", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = cookbookParamsSchema.parse(req.params);
         const data = addMemberSchema.parse(req.body);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
@@ -435,12 +405,6 @@ cookbookRouter.delete("/:id/members/:userId", requireAuth, async (req, res, next
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = memberParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
 
@@ -498,12 +462,6 @@ cookbookRouter.delete("/:id/members/:userId", requireAuth, async (req, res, next
 cookbookRouter.get("/:id/recipes", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = cookbookParamsSchema.parse(req.params);
         const query = cookbookRecipesQuerySchema.parse(req.query);
@@ -616,12 +574,6 @@ cookbookRouter.post("/:id/recipes/:recipeId", requireAuth, async (req, res, next
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = cookbookRecipeParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);
 
@@ -674,13 +626,7 @@ cookbookRouter.post("/:id/recipes/:recipeId", requireAuth, async (req, res, next
 
 cookbookRouter.delete("/:id/recipes/:recipeId", requireAuth, async (req, res, next) => {
     try {
-        const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
+        const authenticatedRequest = req as AuthenticatedRequest
 
         const params = cookbookRecipeParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.id, authenticatedRequest.user.userId);

@@ -1,14 +1,13 @@
-import { ApiError } from "./authService";
 import type { Recipe } from "./recipeService";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+import {apiRequest, type MessageResponse} from "./apiClient";
+import type { CookbookRole } from "../types/cookbook";
 
 export type Cookbook = {
     id: string;
     name: string;
     description: string | null;
     createdBy: string;
-    role: "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
+    role: CookbookRole;
     recipeCount: number;
     createdAt: string;
     updatedAt: string;
@@ -25,7 +24,7 @@ export type CookbookMember = {
     id: string;
     email: string;
     displayName: string;
-    role: "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
+    role: CookbookRole;
     createdAt: string;
 };
 
@@ -53,10 +52,6 @@ type CookbookMemberResponse = {
     member: CookbookMember;
 };
 
-type MessageResponse = {
-    message: string;
-};
-
 function buildCookbookRecipesQuery(filters: CookbookRecipeFilters) {
     const params = new URLSearchParams();
 
@@ -81,22 +76,8 @@ function buildCookbookRecipesQuery(filters: CookbookRecipeFilters) {
     return query ? `?${query}` : "";
 }
 
-async function request<T>(path: string, options: RequestInit) {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new ApiError(
-            data?.message ?? "Une erreur est survenue",
-            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
-        );
-    }
-
-    return data as T;
-}
-
 export function getCookbooks(token: string) {
-    return request<CookbooksResponse>("/cookbooks", {
+    return apiRequest<CookbooksResponse>("/cookbooks", {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -105,7 +86,7 @@ export function getCookbooks(token: string) {
 }
 
 export function createCookbook(token: string, name: string, description: string) {
-    return request<CookbookResponse>("/cookbooks", {
+    return apiRequest<CookbookResponse>("/cookbooks", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -119,7 +100,7 @@ export function createCookbook(token: string, name: string, description: string)
 }
 
 export function getCookbook(token: string, cookbookId: string) {
-    return request<CookbookResponse>(`/cookbooks/${cookbookId}`, {
+    return apiRequest<CookbookResponse>(`/cookbooks/${cookbookId}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -128,7 +109,7 @@ export function getCookbook(token: string, cookbookId: string) {
 }
 
 export function getCookbookRecipes(token: string, cookbookId: string, filters: CookbookRecipeFilters = {}) {
-    return request<CookbookRecipesResponse>(`/cookbooks/${cookbookId}/recipes${buildCookbookRecipesQuery(filters)}`, {
+    return apiRequest<CookbookRecipesResponse>(`/cookbooks/${cookbookId}/recipes${buildCookbookRecipesQuery(filters)}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -137,7 +118,7 @@ export function getCookbookRecipes(token: string, cookbookId: string, filters: C
 }
 
 export function addCookbookMember(token: string, cookbookId: string, email: string, role: string) {
-    return request<CookbookMemberResponse>(`/cookbooks/${cookbookId}/members`, {
+    return apiRequest<CookbookMemberResponse>(`/cookbooks/${cookbookId}/members`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -151,7 +132,7 @@ export function addCookbookMember(token: string, cookbookId: string, email: stri
 }
 
 export function removeCookbookMember(token: string, cookbookId: string, userId: string) {
-    return request<MessageResponse>(`/cookbooks/${cookbookId}/members/${userId}`, {
+    return apiRequest<MessageResponse>(`/cookbooks/${cookbookId}/members/${userId}`, {
         method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`
@@ -160,7 +141,7 @@ export function removeCookbookMember(token: string, cookbookId: string, userId: 
 }
 
 export function addRecipeToCookbook(token: string, cookbookId: string, recipeId: string) {
-    return request<MessageResponse>(`/cookbooks/${cookbookId}/recipes/${recipeId}`, {
+    return apiRequest<MessageResponse>(`/cookbooks/${cookbookId}/recipes/${recipeId}`, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${token}`
@@ -169,7 +150,7 @@ export function addRecipeToCookbook(token: string, cookbookId: string, recipeId:
 }
 
 export function removeRecipeFromCookbook(token: string, cookbookId: string, recipeId: string) {
-    return request<MessageResponse>(`/cookbooks/${cookbookId}/recipes/${recipeId}`, {
+    return apiRequest<MessageResponse>(`/cookbooks/${cookbookId}/recipes/${recipeId}`, {
         method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`
@@ -178,7 +159,7 @@ export function removeRecipeFromCookbook(token: string, cookbookId: string, reci
 }
 
 export function deleteCookbook(token: string, cookbookId: string) {
-    return request<MessageResponse>(`/cookbooks/${cookbookId}`, {
+    return apiRequest<MessageResponse>(`/cookbooks/${cookbookId}`, {
         method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`

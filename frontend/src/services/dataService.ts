@@ -1,7 +1,5 @@
-import { ApiError } from "./authService";
 import type { RecipeIngredientInput } from "./recipeService";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+import { apiRequest } from "./apiClient";
 
 export type FullExportedRecipe = {
     title: string;
@@ -41,22 +39,8 @@ export type FullImportResponse = {
     };
 };
 
-async function request<T>(path: string, options: RequestInit) {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new ApiError(
-            data?.message ?? "Une erreur est survenue",
-            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
-        );
-    }
-
-    return data as T;
-}
-
 export function exportAllData(token: string) {
-    return request<FullDataExport>("/data/export", {
+    return apiRequest<FullDataExport>("/data/export", {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -65,7 +49,7 @@ export function exportAllData(token: string) {
 }
 
 export function importAllData(token: string, payload: FullDataExport) {
-    return request<FullImportResponse>("/data/import", {
+    return apiRequest<FullImportResponse>("/data/import", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

@@ -4,6 +4,8 @@ import { getCurrentUser } from "../services/authService";
 import {createCookbookMessage, deleteCookbookMessage, getCookbookMessages, type CookbookMessage} from "../services/discussionService";
 import {connectRealtime, disconnectRealtime, joinCookbookRoom, leaveCookbookRoom, onCookbookMessageCreated, onCookbookMessageDeleted, onCookbookUpdated} from "../services/socketService";
 import { getStoredToken } from "../utils/authToken";
+import { formatDateTime } from "../utils/date";
+import {getErrorMessage} from "../utils/error.ts";
 
 const props = defineProps<{
   cookbookId: string;
@@ -31,10 +33,6 @@ function canDeleteMessage(message: CookbookMessage) {
 let removeCreatedListener: (() => void) | null = null;
 let removeDeletedListener: (() => void) | null = null;
 let removeUpdatedListener: (() => void) | null = null;
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString("fr-FR");
-}
 
 function addOrUpdateMessage(message: CookbookMessage) {
   const exists = messages.value.some((item) => item.id === message.id);
@@ -66,7 +64,7 @@ async function loadMessages() {
     const response = await getCookbookMessages(token, props.cookbookId);
     messages.value = response.messages;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les messages";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les messages")
   } finally {
     isLoading.value = false;
   }
@@ -151,7 +149,7 @@ async function submitMessage() {
     content.value = "";
     addOrUpdateMessage(response.message);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'envoyer le message";
+    errorMessage.value = getErrorMessage(error,"Impossible d'envoyer le message")
   } finally {
     isSaving.value = false;
   }
@@ -180,7 +178,7 @@ async function removeMessage(message: CookbookMessage) {
     await deleteCookbookMessage(token, props.cookbookId, message.id);
     removeMessageFromList(message.id);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer le message";
+    errorMessage.value = getErrorMessage(error,"Impossible de supprimer le message")
   }
 }
 
@@ -268,7 +266,7 @@ onBeforeUnmount(() => {
       <div v-for="message in messages" :key="message.id" class="message-item">
         <div>
           <strong>{{ message.author.displayName }}</strong>
-          <span>{{ formatDate(message.createdAt) }}</span>
+          <span>{{ formatDateTime(message.createdAt) }}</span>
           <p>{{ message.content }}</p>
         </div>
 

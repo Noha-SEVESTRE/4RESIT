@@ -130,12 +130,6 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const query = listRecipesQuerySchema.parse(req.query);
         const values: unknown[] = [authenticatedRequest.user.userId];
         const conditions = [
@@ -298,12 +292,6 @@ recipeRouter.post("/", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const data = createRecipeSchema.parse(req.body);
 
         await client.query("BEGIN");
@@ -384,12 +372,6 @@ recipeRouter.put("/:id", requireAuth, async (req, res, next) => {
 
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = recipeParamsSchema.parse(req.params);
         const data = createRecipeSchema.parse(req.body);
@@ -501,12 +483,6 @@ recipeRouter.delete("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = recipeParamsSchema.parse(req.params);
 
         const result = await pool.query(
@@ -541,12 +517,6 @@ recipeRouter.get("/favorites", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const result = await pool.query(
             `SELECT r.id,
                 r.owner_id,
@@ -578,12 +548,6 @@ recipeRouter.get("/favorites", requireAuth, async (req, res, next) => {
 recipeRouter.post("/:id/favorite", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = recipeParamsSchema.parse(req.params);
 
@@ -635,12 +599,6 @@ recipeRouter.delete("/:id/favorite", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = recipeParamsSchema.parse(req.params);
 
         await pool.query(
@@ -667,12 +625,6 @@ recipeRouter.delete("/:id/favorite", requireAuth, async (req, res, next) => {
 recipeRouter.get("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = recipeParamsSchema.parse(req.params);
 

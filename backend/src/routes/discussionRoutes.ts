@@ -29,20 +29,7 @@ const contentSchema = z.object({
     content: z.string().trim().min(1, "Le message ne peut pas être vide").max(2000)
 });
 
-function formatComment(row: any) {
-    return {
-        id: row.id,
-        content: row.content,
-        createdAt: row.created_at,
-        author: {
-            id: row.user_id,
-            email: row.email,
-            displayName: row.display_name
-        }
-    };
-}
-
-function formatMessage(row: any) {
+function formatDiscussionItem(row: any) {
     return {
         id: row.id,
         content: row.content,
@@ -91,12 +78,6 @@ discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = recipeCommentParamsSchema.parse(req.params);
         const access = await getRecipeAccess(params.recipeId, authenticatedRequest.user.userId);
 
@@ -121,7 +102,7 @@ discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res
         );
 
         return res.status(200).json({
-            comments: result.rows.map(formatComment)
+            comments: result.rows.map(formatDiscussionItem)
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -138,12 +119,6 @@ discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res
 discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = recipeCommentParamsSchema.parse(req.params);
         const data = contentSchema.parse(req.body);
@@ -182,7 +157,7 @@ discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, re
         );
 
         return res.status(201).json({
-            comment: formatComment(commentResult.rows[0])
+            comment: formatDiscussionItem(commentResult.rows[0])
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -199,12 +174,6 @@ discussionRouter.post("/recipes/:recipeId/comments", requireAuth, async (req, re
 discussionRouter.delete("/recipes/:recipeId/comments/:commentId", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = recipeCommentDeleteParamsSchema.parse(req.params);
         const access = await getRecipeAccess(params.recipeId, authenticatedRequest.user.userId);
@@ -263,12 +232,6 @@ discussionRouter.get("/cookbooks/:cookbookId/messages", requireAuth, async (req,
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = cookbookMessageParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.cookbookId, authenticatedRequest.user.userId);
 
@@ -293,7 +256,7 @@ discussionRouter.get("/cookbooks/:cookbookId/messages", requireAuth, async (req,
         );
 
         return res.status(200).json({
-            messages: result.rows.map(formatMessage)
+            messages: result.rows.map(formatDiscussionItem)
         });
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -310,12 +273,6 @@ discussionRouter.get("/cookbooks/:cookbookId/messages", requireAuth, async (req,
 discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = cookbookMessageParamsSchema.parse(req.params);
         const data = contentSchema.parse(req.body);
@@ -353,7 +310,7 @@ discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req
             [result.rows[0].id]
         );
 
-        const message = formatMessage(messageResult.rows[0]);
+        const message = formatDiscussionItem(messageResult.rows[0]);
 
         emitCookbookMessageCreated(params.cookbookId, message);
 
@@ -375,12 +332,6 @@ discussionRouter.post("/cookbooks/:cookbookId/messages", requireAuth, async (req
 discussionRouter.delete("/cookbooks/:cookbookId/messages/:messageId", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = cookbookMessageDeleteParamsSchema.parse(req.params);
         const accessRole = await getCookbookAccess(params.cookbookId, authenticatedRequest.user.userId);

@@ -4,6 +4,8 @@ import { getRecipes, type Recipe } from "../services/recipeService";
 import { createMealPlan, deleteMealPlan, getMealPlans, type MealPlan } from "../services/mealPlanService";
 import { getCookbooks, getCookbookRecipes } from "../services/cookbookService";
 import { getStoredToken } from "../utils/authToken";
+import { formatDate } from "../utils/date";
+import {getErrorMessage} from "../utils/error.ts";
 
 const recipes = ref<Recipe[]>([]);
 const mealPlans = ref<MealPlan[]>([]);
@@ -25,9 +27,6 @@ const canShareWithCookbook = computed(() =>
     Boolean(selectedRecipe.value?.cookbookId)
 );
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("fr-FR");
-}
 
 function openRecipeDetails(recipeId: string) {
   window.open(`${window.location.origin}/?recipeId=${recipeId}`, "_blank", "noopener,noreferrer");
@@ -68,7 +67,7 @@ async function loadData() {
 
     mealPlans.value = mealPlansResponse.mealPlans;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger le planning";
+    errorMessage.value = getErrorMessage(error, "Impossible de charger le planning")
   } finally {
     isLoading.value = false;
   }
@@ -110,7 +109,7 @@ async function submitMealPlan() {
 
     await loadData();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter ce repas au planning";
+    errorMessage.value = getErrorMessage(error,"Impossible d'ajouter ce repas au planning")
   } finally {
     isSaving.value = false;
   }
@@ -134,7 +133,7 @@ async function removeMealPlan(mealPlan: MealPlan) {
     await deleteMealPlan(token, mealPlan.id);
     await loadData();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer ce repas du planning";
+    errorMessage.value = getErrorMessage(error,"Impossible de retirer ce repas du planning")
   }
 }
 

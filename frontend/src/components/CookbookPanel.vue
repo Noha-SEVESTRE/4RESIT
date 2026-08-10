@@ -5,8 +5,8 @@ import {addCookbookMember, addRecipeToCookbook, createCookbook, deleteCookbook, 
 import CookbookMessagesPanel from "./CookbookMessagesPanel.vue";
 import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
 import { getStoredToken } from "../utils/authToken";
-
-type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
+import type { CookbookRole } from "../types/cookbook";
+import {getErrorMessage} from "../utils/error.ts";
 
 const cookbooks = ref<Cookbook[]>([]);
 const selectedCookbook = ref<Cookbook | null>(null);
@@ -70,7 +70,7 @@ async function loadCookbooks() {
       await selectCookbook(response.cookbooks[0].id);
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les cookbooks";
+    errorMessage.value = getErrorMessage(error, "Impossible de charger les cookbooks")
   } finally {
     isLoading.value = false;
   }
@@ -95,7 +95,7 @@ async function loadAvailableRecipes() {
       );
     });
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes disponibles";
+    errorMessage.value = getErrorMessage(error, "Impossible de charger les recettes disponibles")
   }
 }
 
@@ -116,7 +116,7 @@ async function loadCookbookRecipes() {
 
     cookbookRecipes.value = response.recipes;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes du cookbook";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les recettes du cookbook")
   }
 }
 
@@ -140,7 +140,7 @@ async function selectCookbook(cookbookId: string) {
     await loadCookbookRecipes();
     await loadAvailableRecipes();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger ce cookbook";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger ce cookbook")
   }
 }
 
@@ -169,7 +169,7 @@ async function submitCookbook() {
     await loadCookbooks();
     await selectCookbook(response.cookbook.id);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de créer le cookbook";
+    errorMessage.value = getErrorMessage(error,"Impossible de créer le cookbook")
   } finally {
     isSaving.value = false;
   }
@@ -203,7 +203,7 @@ async function submitMember() {
 
     await refreshSelectedCookbook();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter ce membre";
+    errorMessage.value = getErrorMessage(error,"Impossible d'ajouter ce membre")
   } finally {
     isSaving.value = false;
   }
@@ -226,7 +226,7 @@ async function removeMember(member: CookbookMember) {
     await removeCookbookMember(token, selectedCookbook.value.id, member.id);
     await refreshSelectedCookbook();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer ce membre";
+    errorMessage.value = getErrorMessage(error,"Impossible de retirer ce membre")
   }
 }
 
@@ -252,7 +252,7 @@ async function submitRecipeToCookbook() {
 
     await refreshSelectedCookbook();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter cette recette";
+    errorMessage.value = getErrorMessage(error,"Impossible d'ajouter cette recette")
   } finally {
     isSaving.value = false;
   }
@@ -280,7 +280,7 @@ async function removeRecipe(recipe: CookbookRecipe) {
 
     await refreshSelectedCookbook();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de retirer cette recette";
+    errorMessage.value = getErrorMessage(error,"Impossible de retirer cette recette")
   }
 }
 
@@ -335,7 +335,7 @@ async function handleRealtimeCookbookUpdate() {
       realtimeNotice.value = "";
     }, 2500);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger la mise à jour du cookbook";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger la mise à jour du cookbook")
   }
 }
 
@@ -380,7 +380,7 @@ async function removeCookbook() {
 
     await loadCookbooks();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer ce cookbook";
+    errorMessage.value = getErrorMessage(error,"Impossible de supprimer ce cookbook")
   }
 }
 

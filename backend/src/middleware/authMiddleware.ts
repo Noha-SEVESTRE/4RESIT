@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { type AuthTokenPayload, verifyToken } from "../utils/token";
 
 export type AuthenticatedRequest = Request & {
-    user?: AuthTokenPayload;
+    user: AuthTokenPayload;
 };
 
 function getBearerToken(authorizationHeader: string | undefined) {

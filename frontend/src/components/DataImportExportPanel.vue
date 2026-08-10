@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { exportAllData, importAllData, type FullDataExport } from "../services/dataService";
 import { getStoredToken } from "../utils/authToken";
+import {getErrorMessage} from "../utils/error.ts";
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const isExporting = ref(false);
@@ -56,7 +57,7 @@ async function exportData() {
     downloadJsonFile(payload);
     successMessage.value = "Export généré avec succès";
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'exporter les données";
+    errorMessage.value = getErrorMessage(error, "Impossible d'exporter les données")
   } finally {
     isExporting.value = false;
   }
@@ -94,7 +95,8 @@ async function importDataFile(event: Event) {
 
     successMessage.value = `${response.message} : ${response.summary.importedRecipes} recette(s), ${response.summary.importedCookbooks} cookbook(s)`;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'importer les données";
+    errorMessage.value =
+        getErrorMessage(error,"Impossible d'importer les données")
   } finally {
     input.value = "";
     isImporting.value = false;
