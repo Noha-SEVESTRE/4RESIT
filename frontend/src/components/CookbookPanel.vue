@@ -40,6 +40,17 @@ const canComment = computed(() => {
   return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
 });
 
+function getRoleLabel(role: CookbookRole) {
+  const labels: Record<CookbookRole, string> = {
+    OWNER: "Propriétaire",
+    EDITOR: "Éditeur",
+    READER: "Lecteur",
+    COMMENTATOR: "Commentateur"
+  };
+
+  return labels[role];
+}
+
 async function loadCookbooks() {
   const token = getStoredToken();
 
@@ -419,7 +430,7 @@ onMounted(async () => {
             @click="selectCookbook(cookbook.id)"
         >
           <strong>{{ cookbook.name }}</strong>
-          <span>{{ cookbook.recipeCount }} recette{{ cookbook.recipeCount > 1 ? "s" : "" }} · {{ cookbook.role }}</span>
+          <span>{{ cookbook.recipeCount }} recette{{ cookbook.recipeCount > 1 ? "s" : "" }}· {{ getRoleLabel(cookbook.role) }}</span>
         </button>
 
         <p v-if="!cookbooks.length && !isLoading" class="recipe-info">
@@ -430,7 +441,7 @@ onMounted(async () => {
       <article v-if="selectedCookbook" class="cookbook-detail">
         <div class="cookbook-title-card">
           <div>
-            <p class="section-label">{{ selectedCookbook.role }}</p>
+            <p class="section-label">{{ getRoleLabel(selectedCookbook.role) }}</p>
             <h4>{{ selectedCookbook.name }}</h4>
             <p>{{ selectedCookbook.description || "Aucune description" }}</p>
           </div>
@@ -470,7 +481,7 @@ onMounted(async () => {
             <div v-for="member in members" :key="member.id" class="member-item">
               <div>
                 <strong>{{ member.displayName }}</strong>
-                <span>{{ member.email }} · {{ member.role }}</span>
+                <span>{{ member.email }} · {{ getRoleLabel(member.role) }}</span>
               </div>
 
               <button
