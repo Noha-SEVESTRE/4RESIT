@@ -643,9 +643,16 @@ recipeRouter.get("/:id", requireAuth, async (req, res, next) => {
         const params = recipeParamsSchema.parse(req.params);
 
         const accessResult = await pool.query(
-            `SELECT id
-       FROM recipes
-       WHERE id = $1 AND owner_id = $2`,
+            `SELECT r.id
+             FROM recipes r
+                      LEFT JOIN cookbook_members cm
+                                ON cm.cookbook_id = r.cookbook_id
+                                    AND cm.user_id = $2
+             WHERE r.id = $1
+               AND (
+                 r.owner_id = $2
+                     OR cm.user_id IS NOT NULL
+                 )`,
             [params.id, authenticatedRequest.user.userId]
         );
 
