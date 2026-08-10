@@ -4,6 +4,7 @@ import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { hashPassword, verifyPassword } from "../utils/password";
 import { createToken } from "../utils/token";
+import { createStrongPasswordSchema } from "../utils/passwordValidation";
 
 export const authRouter = Router();
 
@@ -14,10 +15,7 @@ const registerSchema = z.object({
         .email("L'adresse email n'est pas valide")
         .max(255, "L'adresse email est trop longue")
         .transform((value) => value.toLowerCase()),
-    password: z.string()
-        .min(1, "Le mot de passe est obligatoire")
-        .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-        .max(120, "Le mot de passe est trop long"),
+    password: createStrongPasswordSchema(),
     displayName: z.string()
         .trim()
         .min(1, "Le pseudonyme est obligatoire")

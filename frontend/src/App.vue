@@ -8,6 +8,7 @@ import type { Recipe } from "./services/recipeService";
 import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import { getStrongPasswordError } from "./utils/passwordValidation";
 
 type ViewName = "login" | "register" | "dashboard";
 type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
@@ -208,10 +209,10 @@ function validateRegister() {
     errors.email = "L'adresse email n'est pas valide";
   }
 
-  if (!registerForm.value.password) {
-    errors.password = "Le mot de passe est obligatoire";
-  } else if (registerForm.value.password.length < 8) {
-    errors.password = "Le mot de passe doit contenir au moins 8 caractères";
+  const passwordError = getStrongPasswordError(registerForm.value.password);
+
+  if (passwordError) {
+    errors.password = passwordError;
   }
 
   if (!registerForm.value.passwordConfirmation) {
@@ -422,7 +423,7 @@ onMounted(async () => {
 
         <label>
           Mot de passe
-          <input v-model="registerForm.password" :class="{ 'input-error': registerErrors.password }" type="password" placeholder="Minimum 8 caractères">
+          <input v-model="registerForm.password" :class="{ 'input-error': registerErrors.password }" type="password" placeholder="8 caractères, majuscule, chiffre et spécial">
           <span v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</span>
         </label>
 

@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { ApiError, type FieldErrors, type User } from "../services/authService";
 import { changeEmail, changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
 import DataImportExportPanel from "./DataImportExportPanel.vue";
+import { getStrongPasswordError } from "../utils/passwordValidation";
 
 const emit = defineEmits<{
   updated: [user: User];
@@ -252,8 +253,13 @@ async function submitPassword() {
     passwordErrors.value.currentPassword = "Le mot de passe actuel est obligatoire";
   }
 
-  if (newPassword.value.length < 8) {
-    passwordErrors.value.newPassword = "Le nouveau mot de passe doit contenir au moins 8 caractères";
+  const newPasswordError = getStrongPasswordError(
+      newPassword.value,
+      "Le nouveau mot de passe"
+  );
+
+  if (newPasswordError) {
+    passwordErrors.value.newPassword = newPasswordError;
   }
 
   if (newPassword.value !== newPasswordConfirmation.value) {
@@ -366,7 +372,7 @@ onMounted(loadSettings);
 
           <label>
             Nouveau mot de passe
-            <input v-model="newPassword" type="password" placeholder="Minimum 8 caractères">
+            <input v-model="newPassword" type="password" placeholder="8 caractères, majuscule, chiffre et spécial">
             <span v-if="passwordErrors.newPassword" class="field-error">{{ passwordErrors.newPassword }}</span>
           </label>
 
