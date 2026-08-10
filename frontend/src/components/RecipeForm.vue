@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { createRecipe, updateRecipe, type Recipe } from "../services/recipeService";
+import { getStoredToken } from "../utils/authToken";
 
 const props = defineProps<{
   recipe?: Recipe | null;
@@ -42,16 +43,6 @@ const isLoading = ref(false);
 const errorMessage = ref("");
 
 const isEditMode = computed(() => Boolean(props.recipe));
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function getTagValue(prefix: string, tags?: string[]) {
   const tag = tags?.find((item) => item.toLowerCase().startsWith(prefix.toLowerCase()));

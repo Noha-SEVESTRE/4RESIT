@@ -4,6 +4,7 @@ import { ApiError, type FieldErrors, type User } from "../services/authService";
 import { changeEmail, changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
 import DataImportExportPanel from "./DataImportExportPanel.vue";
 import { getStrongPasswordError } from "../utils/passwordValidation";
+import { getStoredToken } from "../utils/authToken";
 
 const emit = defineEmits<{
   updated: [user: User];
@@ -34,16 +35,6 @@ const emailSuccessMessage = ref("");
 const passwordErrors = ref<FormErrors>({});
 const emailErrors = ref<FormErrors>({});
 const isEmailSaving = ref(false);
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function fillForm(user: User) {
   const preferences = user.dietaryPreferences as {

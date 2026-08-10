@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import RecipeDetailsPanel from "./RecipeDetailsPanel.vue";
 import { getRecipe, type Recipe } from "../services/recipeService";
+import { getStoredToken } from "../utils/authToken";
 
 const props = defineProps<{
   recipeId: string;
@@ -10,10 +11,6 @@ const props = defineProps<{
 const recipe = ref<Recipe | null>(null);
 const errorMessage = ref("");
 const isLoading = ref(true);
-
-function getStoredToken() {
-  return localStorage.getItem("supmeal_token");
-}
 
 async function loadRecipe() {
   const token = getStoredToken();

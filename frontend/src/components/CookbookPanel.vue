@@ -1,22 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { getRecipes, type Recipe } from "../services/recipeService";
-import {
-  addCookbookMember,
-  addRecipeToCookbook,
-  createCookbook,
-  deleteCookbook,
-  getCookbook,
-  getCookbookRecipes,
-  getCookbooks,
-  removeCookbookMember,
-  removeRecipeFromCookbook,
-  type Cookbook,
-  type CookbookMember,
-  type CookbookRecipe
-} from "../services/cookbookService";
+import {addCookbookMember, addRecipeToCookbook, createCookbook, deleteCookbook, getCookbook, getCookbookRecipes, getCookbooks, removeCookbookMember, removeRecipeFromCookbook, type Cookbook, type CookbookMember, type CookbookRecipe} from "../services/cookbookService";
 import CookbookMessagesPanel from "./CookbookMessagesPanel.vue";
 import RecipeCommentsPanel from "./RecipeCommentsPanel.vue";
+import { getStoredToken } from "../utils/authToken";
 
 type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
 
@@ -51,16 +39,6 @@ const canComment = computed(() => {
 
   return role === "OWNER" || role === "EDITOR" || role === "COMMENTATOR";
 });
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 async function loadCookbooks() {
   const token = getStoredToken();

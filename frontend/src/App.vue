@@ -9,6 +9,7 @@ import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { getStrongPasswordError } from "./utils/passwordValidation";
+import {getStoredToken, setStoredToken, clearStoredToken} from "./utils/authToken";
 
 type ViewName = "login" | "register" | "dashboard";
 type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
@@ -18,7 +19,7 @@ const routeRecipeId = ref(new URLSearchParams(window.location.search).get("recip
 const currentView = ref<ViewName>("login");
 const currentPage = ref<PageName>("dashboard");
 const currentUser = ref<User | null>(null);
-const token = ref(localStorage.getItem("supmeal_token"));
+const token = ref(getStoredToken());
 const isLoading = ref(false);
 const errorMessage = ref("");
 const infoMessage = ref("");
@@ -108,7 +109,7 @@ function resetMessages() {
 function saveSession(nextToken: string, user: User) {
   token.value = nextToken;
   currentUser.value = user;
-  localStorage.setItem("supmeal_token", nextToken);
+  setStoredToken(nextToken);
   currentView.value = "dashboard";
   currentPage.value = "dashboard";
 }
@@ -129,7 +130,7 @@ function logout() {
   currentPage.value = "dashboard";
   showRecipeForm.value = false;
   selectedRecipe.value = null;
-  localStorage.removeItem("supmeal_token");
+  clearStoredToken();
   goToLogin();
 }
 
@@ -313,7 +314,7 @@ onMounted(async () => {
   }
 
   if (oauthToken) {
-    localStorage.setItem("supmeal_token", oauthToken);
+    setStoredToken(oauthToken);
     token.value = oauthToken;
     window.history.replaceState({}, document.title, window.location.pathname);
   }
@@ -329,7 +330,7 @@ onMounted(async () => {
     currentView.value = "dashboard";
     currentPage.value = "dashboard";
   } catch (_error) {
-    localStorage.removeItem("supmeal_token");
+    clearStoredToken();
     token.value = null;
     currentView.value = "login";
     currentPage.value = "dashboard";

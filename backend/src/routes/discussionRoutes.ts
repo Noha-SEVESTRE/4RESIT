@@ -3,10 +3,9 @@ import { z } from "zod";
 import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { emitCookbookMessageCreated, emitCookbookMessageDeleted } from "../realtime/socket";
+import {getCookbookAccess, type CookbookRole} from "../utils/cookbookAccess";
 
 export const discussionRouter = Router();
-
-type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
 
 const recipeCommentParamsSchema = z.object({
     recipeId: z.string().uuid("L'identifiant de la recette est invalide")
@@ -86,17 +85,6 @@ async function getRecipeAccess(recipeId: string, userId: string) {
         cookbookId: recipe.cookbook_id as string,
         cookbookRole: recipe.cookbook_role as CookbookRole
     };
-}
-
-async function getCookbookAccess(cookbookId: string, userId: string) {
-    const result = await pool.query(
-        `SELECT role
-         FROM cookbook_members
-         WHERE cookbook_id = $1 AND user_id = $2`,
-        [cookbookId, userId]
-    );
-
-    return (result.rows[0]?.role ?? null) as CookbookRole | null;
 }
 
 discussionRouter.get("/recipes/:recipeId/comments", requireAuth, async (req, res, next) => {

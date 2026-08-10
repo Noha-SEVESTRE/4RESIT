@@ -1,21 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getCurrentUser } from "../services/authService";
-import {
-  createCookbookMessage,
-  deleteCookbookMessage,
-  getCookbookMessages,
-  type CookbookMessage
-} from "../services/discussionService";
-import {
-  connectRealtime,
-  disconnectRealtime,
-  joinCookbookRoom,
-  leaveCookbookRoom,
-  onCookbookMessageCreated,
-  onCookbookMessageDeleted,
-  onCookbookUpdated
-} from "../services/socketService";
+import {createCookbookMessage, deleteCookbookMessage, getCookbookMessages, type CookbookMessage} from "../services/discussionService";
+import {connectRealtime, disconnectRealtime, joinCookbookRoom, leaveCookbookRoom, onCookbookMessageCreated, onCookbookMessageDeleted, onCookbookUpdated} from "../services/socketService";
+import { getStoredToken } from "../utils/authToken";
 
 const props = defineProps<{
   cookbookId: string;
@@ -43,16 +31,6 @@ function canDeleteMessage(message: CookbookMessage) {
 let removeCreatedListener: (() => void) | null = null;
 let removeDeletedListener: (() => void) | null = null;
 let removeUpdatedListener: (() => void) | null = null;
-
-function getStoredToken() {
-  return (
-      localStorage.getItem("token") ??
-      localStorage.getItem("authToken") ??
-      localStorage.getItem("supmealToken") ??
-      localStorage.getItem("supmeal_token") ??
-      ""
-  );
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("fr-FR");
