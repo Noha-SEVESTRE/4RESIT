@@ -37,12 +37,6 @@ mealPlanRouter.get("/", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const result = await pool.query(
             `SELECT mp.id, mp.planned_date, mp.meal_type, mp.created_at,
                     r.id AS recipe_id, r.title AS recipe_title, r.preparation_time, r.cooking_time, r.portions, r.image_url
@@ -70,12 +64,6 @@ mealPlanRouter.get("/", requireAuth, async (req, res, next) => {
 mealPlanRouter.post("/", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const data = createMealPlanSchema.parse(req.body);
 
@@ -149,12 +137,6 @@ mealPlanRouter.post("/", requireAuth, async (req, res, next) => {
 mealPlanRouter.delete("/:id", requireAuth, async (req, res, next) => {
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const params = mealPlanParamsSchema.parse(req.params);
 

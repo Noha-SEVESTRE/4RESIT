@@ -4,6 +4,7 @@ import { pool } from "../database/pool";
 import { requireAuth, type AuthenticatedRequest } from "../middleware/authMiddleware";
 import { hashPassword, verifyPassword } from "../utils/password";
 import { createStrongPasswordSchema } from "../utils/passwordValidation";
+import { formatUser } from "../utils/userFormatter";
 
 export const userRouter = Router();
 
@@ -41,18 +42,6 @@ const emailSchema = z.object({
         .min(1, "Le mot de passe actuel est obligatoire")
         .max(120, "Le mot de passe actuel est trop long")
 });
-
-function formatUser(row: any) {
-    return {
-        id: row.id,
-        email: row.email,
-        displayName: row.display_name,
-        dietaryPreferences: row.dietary_preferences,
-        defaultPortions: row.default_portions,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-    };
-}
 
 function formatValidationError(error: z.ZodError) {
     return {

@@ -1,6 +1,4 @@
-import { ApiError } from "./authService";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+import {apiRequest, type MessageResponse} from "./apiClient";
 
 export type Recipe = {
     id: string;
@@ -92,10 +90,6 @@ type RecipesResponse = {
     recipes: Recipe[];
 };
 
-type MessageResponse = {
-    message: string;
-};
-
 type ImportRecipeResponse = {
     message: string;
     recipe: {
@@ -103,20 +97,6 @@ type ImportRecipeResponse = {
         title: string;
     };
 };
-
-async function request<T>(path: string, options: RequestInit) {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new ApiError(
-            data?.message ?? "Une erreur est survenue",
-            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
-        );
-    }
-
-    return data as T;
-}
 
 function buildQuery(filters: RecipeFilters) {
     const params = new URLSearchParams();
@@ -163,7 +143,7 @@ function buildQuery(filters: RecipeFilters) {
 }
 
 export function getRecipes(token: string, filters: RecipeFilters = {}) {
-    return request<RecipesResponse>(`/recipes${buildQuery(filters)}`, {
+    return apiRequest<RecipesResponse>(`/recipes${buildQuery(filters)}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -172,7 +152,7 @@ export function getRecipes(token: string, filters: RecipeFilters = {}) {
 }
 
 export function addRecipeToFavorites(token: string, recipeId: string) {
-    return request<MessageResponse>(`/recipes/${recipeId}/favorite`, {
+    return apiRequest<MessageResponse>(`/recipes/${recipeId}/favorite`, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${token}`
@@ -181,7 +161,7 @@ export function addRecipeToFavorites(token: string, recipeId: string) {
 }
 
 export function removeRecipeFromFavorites(token: string, recipeId: string) {
-    return request<MessageResponse>(`/recipes/${recipeId}/favorite`, {
+    return apiRequest<MessageResponse>(`/recipes/${recipeId}/favorite`, {
         method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`
@@ -190,7 +170,7 @@ export function removeRecipeFromFavorites(token: string, recipeId: string) {
 }
 
 export function createRecipe(token: string, payload: CreateRecipePayload) {
-    return request<RecipeResponse>("/recipes", {
+    return apiRequest<RecipeResponse>("/recipes", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -201,7 +181,7 @@ export function createRecipe(token: string, payload: CreateRecipePayload) {
 }
 
 export function getRecipe(token: string, recipeId: string) {
-    return request<RecipeResponse>(`/recipes/${recipeId}`, {
+    return apiRequest<RecipeResponse>(`/recipes/${recipeId}`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -210,7 +190,7 @@ export function getRecipe(token: string, recipeId: string) {
 }
 
 export function updateRecipe(token: string, recipeId: string, payload: CreateRecipePayload) {
-    return request<RecipeResponse>(`/recipes/${recipeId}`, {
+    return apiRequest<RecipeResponse>(`/recipes/${recipeId}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
@@ -221,7 +201,7 @@ export function updateRecipe(token: string, recipeId: string, payload: CreateRec
 }
 
 export function deleteRecipe(token: string, recipeId: string) {
-    return request<MessageResponse>(`/recipes/${recipeId}`, {
+    return apiRequest<MessageResponse>(`/recipes/${recipeId}`, {
         method: "DELETE",
         headers: {
             Authorization: `Bearer ${token}`
@@ -230,7 +210,7 @@ export function deleteRecipe(token: string, recipeId: string) {
 }
 
 export function exportRecipe(token: string, recipeId: string) {
-    return request<ExportedRecipe>(`/recipes/${recipeId}/export`, {
+    return apiRequest<ExportedRecipe>(`/recipes/${recipeId}/export`, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -239,7 +219,7 @@ export function exportRecipe(token: string, recipeId: string) {
 }
 
 export function importRecipe(token: string, payload: ExportedRecipe) {
-    return request<ImportRecipeResponse>("/recipes/import", {
+    return apiRequest<ImportRecipeResponse>("/recipes/import", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

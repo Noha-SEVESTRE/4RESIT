@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { ApiError, type FieldErrors, type User } from "../services/authService";
+import { type User } from "../services/authService";
+import { ApiError, type FieldErrors} from "../services/apiClient";
 import { changeEmail, changePassword, getUserPreferences, getUserSecurity, updateUserPreferences, type UserSecurity } from "../services/userService";
 import DataImportExportPanel from "./DataImportExportPanel.vue";
 import { getStrongPasswordError } from "../utils/passwordValidation";
 import { getStoredToken } from "../utils/authToken";
+import {getErrorMessage} from "../utils/error.ts";
 
 const emit = defineEmits<{
   updated: [user: User];
@@ -120,7 +122,7 @@ async function loadSettings() {
     security.value = securityResponse.security;
     emit("updated", preferencesResponse.user);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les paramètres";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les paramètres")
   } finally {
     isLoading.value = false;
   }
@@ -163,7 +165,7 @@ async function submitSettings() {
     emit("updated", response.user);
     successMessage.value = "Paramètres enregistrés";
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'enregistrer les paramètres";
+    errorMessage.value = getErrorMessage(error,"Impossible d'enregistrer les paramètres")
   } finally {
     isSaving.value = false;
   }
@@ -525,8 +527,7 @@ onMounted(loadSettings);
   color: #5f5148;
 }
 
-.settings-form button,
-.secondary-button {
+.settings-form button {
   border: 0;
   border-radius: 15px;
   padding: 12px 16px;
@@ -534,12 +535,6 @@ onMounted(loadSettings);
   cursor: pointer;
   background: #f97316;
   color: white;
-}
-
-.secondary-button {
-  background: #f2ebe3;
-  color: #2f241d;
-  box-shadow: none;
 }
 
 .field-error {
@@ -581,7 +576,7 @@ onMounted(loadSettings);
   font-weight: 800;
 }
 
-:deep(.data-panel) {
+:deep() {
   border: 1px solid #decab0;
   border-radius: 26px;
   background: #fffdf8;
@@ -607,7 +602,7 @@ onMounted(loadSettings);
 
   .settings-header,
   .settings-card,
-  :deep(.data-panel) {
+  :deep() {
     padding: 20px;
   }
 }

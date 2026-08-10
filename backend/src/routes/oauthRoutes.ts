@@ -2,6 +2,7 @@ import { Router } from "express";
 import { randomBytes } from "crypto";
 import { pool } from "../database/pool";
 import { createToken } from "../utils/token";
+import { findOrCreateOAuthUser } from "../utils/oauthUser";
 
 export const oauthRouter = Router();
 
@@ -219,63 +220,13 @@ oauthRouter.get("/github/callback", async (req, res, next) => {
 
         await client.query("BEGIN");
 
-        const accountResult = await client.query(
-            `SELECT u.id,
-              u.email,
-              u.display_name,
-              u.dietary_preferences,
-              u.default_portions,
-              u.created_at
-       FROM oauth_accounts oa
-       JOIN users u ON u.id = oa.user_id
-       WHERE oa.provider = $1 AND oa.provider_user_id = $2`,
-            ["github", String(githubUser.id)]
+        const user = await findOrCreateOAuthUser(
+            client,
+            "github",
+            String(githubUser.id),
+            githubEmail,
+            githubUser.name ?? githubUser.login
         );
-
-        let user = accountResult.rows[0];
-
-        if (!user) {
-            const existingUserResult = await client.query(
-                `SELECT id,
-                email,
-                display_name,
-                dietary_preferences,
-                default_portions,
-                created_at
-         FROM users
-         WHERE email = $1`,
-                [githubEmail.toLowerCase()]
-            );
-
-            user = existingUserResult.rows[0];
-
-            if (!user) {
-                const displayName = githubUser.name ?? githubUser.login;
-
-                const newUserResult = await client.query(
-                    `INSERT INTO users (email, display_name, password_hash)
-           VALUES ($1, $2, NULL)
-           RETURNING id, email, display_name, dietary_preferences, default_portions, created_at`,
-                    [
-                        githubEmail.toLowerCase(),
-                        displayName
-                    ]
-                );
-
-                user = newUserResult.rows[0];
-            }
-
-            await client.query(
-                `INSERT INTO oauth_accounts (user_id, provider, provider_user_id)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (provider, provider_user_id) DO NOTHING`,
-                [
-                    user.id,
-                    "github",
-                    String(githubUser.id)
-                ]
-            );
-        }
 
         await client.query("COMMIT");
 
@@ -343,61 +294,13 @@ oauthRouter.get("/google/callback", async (req, res, next) => {
 
         await client.query("BEGIN");
 
-        const accountResult = await client.query(
-            `SELECT u.id,
-              u.email,
-              u.display_name,
-              u.dietary_preferences,
-              u.default_portions,
-              u.created_at
-       FROM oauth_accounts oa
-       JOIN users u ON u.id = oa.user_id
-       WHERE oa.provider = $1 AND oa.provider_user_id = $2`,
-            ["google", googleUser.id]
+        const user = await findOrCreateOAuthUser(
+            client,
+            "google",
+            googleUser.id,
+            googleUser.email,
+            googleUser.name
         );
-
-        let user = accountResult.rows[0];
-
-        if (!user) {
-            const existingUserResult = await client.query(
-                `SELECT id,
-                email,
-                display_name,
-                dietary_preferences,
-                default_portions,
-                created_at
-         FROM users
-         WHERE email = $1`,
-                [googleUser.email.toLowerCase()]
-            );
-
-            user = existingUserResult.rows[0];
-
-            if (!user) {
-                const newUserResult = await client.query(
-                    `INSERT INTO users (email, display_name, password_hash)
-           VALUES ($1, $2, NULL)
-           RETURNING id, email, display_name, dietary_preferences, default_portions, created_at`,
-                    [
-                        googleUser.email.toLowerCase(),
-                        googleUser.name
-                    ]
-                );
-
-                user = newUserResult.rows[0];
-            }
-
-            await client.query(
-                `INSERT INTO oauth_accounts (user_id, provider, provider_user_id)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (provider, provider_user_id) DO NOTHING`,
-                [
-                    user.id,
-                    "google",
-                    googleUser.id
-                ]
-            );
-        }
 
         await client.query("COMMIT");
 

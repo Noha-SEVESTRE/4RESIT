@@ -60,12 +60,6 @@ recipeImportExportRouter.get("/:id/export", requireAuth, async (req, res, next) 
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
 
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
-
         const params = recipeParamsSchema.parse(req.params);
 
         const recipeResult = await pool.query(
@@ -140,12 +134,6 @@ recipeImportExportRouter.post("/import", requireAuth, async (req, res, next) => 
 
     try {
         const authenticatedRequest = req as AuthenticatedRequest;
-
-        if (!authenticatedRequest.user) {
-            return res.status(401).json({
-                message: "Utilisateur non authentifié"
-            });
-        }
 
         const data = importRecipeSchema.parse(req.body);
 

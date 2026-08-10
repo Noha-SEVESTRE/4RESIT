@@ -2,21 +2,10 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { getCurrentUser, type User } from "../services/authService";
 import { getStoredToken } from "../utils/authToken";
-
-type CookbookRole = "OWNER" | "EDITOR" | "READER" | "COMMENTATOR";
-
-type CommentAuthor = {
-  id: string;
-  email: string;
-  displayName: string;
-};
-
-type RecipeComment = {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: CommentAuthor;
-};
+import {createRecipeComment, deleteRecipeComment, getRecipeComments, type RecipeComment} from "../services/discussionService";
+import type { CookbookRole } from "../types/cookbook";
+import { formatDateTime } from "../utils/date";
+import {getErrorMessage} from "../utils/error.ts";
 
 const props = withDefaults(defineProps<{
   recipeId: string;
@@ -38,43 +27,14 @@ const canWrite = computed(() => {
   return props.canComment && props.role !== "READER";
 });
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
 function canDelete(comment: RecipeComment) {
-  return props.role === "OWNER" || ((props.role === "EDITOR" || props.role === "COMMENTATOR") && comment.author.id === currentUser.value?.id);
-}
-
-async function request<T>(path: string, options: RequestInit = {}) {
-  const token = getStoredToken();
-
-  if (!token) {
-    throw new Error("Session introuvable, reconnecte-toi");
-  }
-
-  const response = await fetch(`http://localhost:8080/api${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options.headers ?? {})
-    }
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.message ?? "Une erreur est survenue");
-  }
-
-  return data as T;
+  return (
+      props.role === "OWNER" ||
+      (
+          (props.role === "EDITOR" || props.role === "COMMENTATOR") &&
+          comment.author.id === currentUser.value?.id
+      )
+  );
 }
 
 async function loadCurrentUser() {
@@ -93,14 +53,25 @@ async function loadCurrentUser() {
 }
 
 async function loadComments() {
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
   isLoading.value = true;
   errorMessage.value = "";
 
   try {
-    const response = await request<{ comments: RecipeComment[] }>(`/recipes/${props.recipeId}/comments`);
+    const response = await getRecipeComments(
+        token,
+        props.recipeId
+    );
+
     comments.value = response.comments;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les commentaires";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les commentaires")
   } finally {
     isLoading.value = false;
   }
@@ -116,56 +87,73 @@ async function submitComment() {
     return;
   }
 
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
+    return;
+  }
+
   isSaving.value = true;
   errorMessage.value = "";
 
   try {
-    const response = await request<{ comment?: RecipeComment; message?: RecipeComment }>(`/recipes/${props.recipeId}/comments`, {
-      method: "POST",
-      body: JSON.stringify({
-        content: content.value.trim()
-      })
-    });
+    const response = await createRecipeComment(
+        token,
+        props.recipeId,
+        content.value.trim()
+    );
 
-    const createdComment = response.comment ?? response.message;
-
-    if (createdComment) {
-      comments.value.push(createdComment);
-    } else {
-      await loadComments();
-    }
-
+    comments.value.push(response.comment);
     content.value = "";
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'ajouter le commentaire";
+    errorMessage.value = getErrorMessage(error,"Impossible d'ajouter le commentaire")
   } finally {
     isSaving.value = false;
   }
 }
 
 async function removeComment(comment: RecipeComment) {
-  const confirmed = window.confirm("Supprimer ce commentaire ?");
+  const confirmed = window.confirm(
+      "Supprimer ce commentaire ?"
+  );
 
   if (!confirmed) {
+    return;
+  }
+
+  const token = getStoredToken();
+
+  if (!token) {
+    errorMessage.value = "Session introuvable, reconnecte-toi";
     return;
   }
 
   errorMessage.value = "";
 
   try {
-    await request(`/recipes/${props.recipeId}/comments/${comment.id}`, {
-      method: "DELETE"
-    });
+    await deleteRecipeComment(
+        token,
+        props.recipeId,
+        comment.id
+    );
 
-    comments.value = comments.value.filter((currentComment) => currentComment.id !== comment.id);
+    comments.value = comments.value.filter(
+        (currentComment) =>
+            currentComment.id !== comment.id
+    );
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer ce commentaire";
+    errorMessage.value =
+        getErrorMessage(error,"Impossible de supprimer ce commentaire")
   }
 }
 
-watch(() => props.recipeId, async () => {
-  await loadComments();
-});
+watch(
+    () => props.recipeId,
+    async () => {
+      await loadComments();
+    }
+);
 
 onMounted(async () => {
   await Promise.all([
@@ -179,20 +167,36 @@ onMounted(async () => {
   <section class="recipe-comments-panel">
     <div class="comments-topbar">
       <div>
-        <p class="section-label">Commentaires</p>
-        <h4>Discussion de recette</h4>
+        <p class="section-label">
+          Commentaires
+        </p>
+
+        <h4>
+          Discussion de recette
+        </h4>
       </div>
 
-      <button class="secondary-button" type="button" @click="loadComments">
+      <button
+          class="secondary-button"
+          type="button"
+          @click="loadComments"
+      >
         Actualiser
       </button>
     </div>
 
-    <p v-if="errorMessage" class="recipe-error">
+    <p
+        v-if="errorMessage"
+        class="recipe-error"
+    >
       {{ errorMessage }}
     </p>
 
-    <form v-if="canWrite" class="comment-form" @submit.prevent="submitComment">
+    <form
+        v-if="canWrite"
+        class="comment-form"
+        @submit.prevent="submitComment"
+    >
       <textarea
           v-model="content"
           rows="3"
@@ -200,25 +204,46 @@ onMounted(async () => {
           placeholder="Ajouter un commentaire sur cette recette..."
       ></textarea>
 
-      <button type="submit" :disabled="isSaving">
+      <button
+          type="submit"
+          :disabled="isSaving"
+      >
         {{ isSaving ? "Envoi..." : "Envoyer" }}
       </button>
     </form>
 
-    <p v-else class="recipe-info">
+    <p
+        v-else
+        class="recipe-info"
+    >
       Votre rôle permet uniquement de lire les commentaires de cette recette.
     </p>
 
-    <p v-if="isLoading" class="recipe-info">
+    <p
+        v-if="isLoading"
+        class="recipe-info"
+    >
       Chargement des commentaires...
     </p>
 
-    <div v-else class="comments-list">
-      <article v-for="comment in comments" :key="comment.id" class="comment-item">
+    <div
+        v-else
+        class="comments-list"
+    >
+      <article
+          v-for="comment in comments"
+          :key="comment.id"
+          class="comment-item"
+      >
         <div class="comment-header">
           <div>
-            <strong>{{ comment.author.displayName }}</strong>
-            <span>{{ formatDate(comment.createdAt) }}</span>
+            <strong>
+              {{ comment.author.displayName }}
+            </strong>
+
+            <span>
+              {{ formatDateTime(comment.createdAt) }}
+            </span>
           </div>
 
           <button
@@ -231,10 +256,15 @@ onMounted(async () => {
           </button>
         </div>
 
-        <p>{{ comment.content }}</p>
+        <p>
+          {{ comment.content }}
+        </p>
       </article>
 
-      <p v-if="!comments.length" class="recipe-info">
+      <p
+          v-if="!comments.length"
+          class="recipe-info"
+      >
         Aucun commentaire pour cette recette.
       </p>
     </div>

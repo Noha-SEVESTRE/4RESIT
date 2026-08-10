@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { ApiError, getCurrentUser, loginUser, registerUser, startGitHubLogin, startGoogleLogin, type FieldErrors, type User } from "./services/authService";
+import { getCurrentUser, loginUser, registerUser, startGitHubLogin, startGoogleLogin, type User } from "./services/authService";
+import { ApiError, type FieldErrors} from "./services/apiClient";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
 import RecipeDetailsPage from "./components/RecipeDetailsPage.vue";
@@ -9,7 +10,7 @@ import MealPlanPanel from "./components/MealPlanPanel.vue";
 import CookbookPanel from "./components/CookbookPanel.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { getStrongPasswordError } from "./utils/passwordValidation";
-import {getStoredToken, setStoredToken, clearStoredToken} from "./utils/authToken";
+import { getStoredToken, setStoredToken, clearStoredToken} from "./utils/authToken";
 
 type ViewName = "login" | "register" | "dashboard";
 type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";

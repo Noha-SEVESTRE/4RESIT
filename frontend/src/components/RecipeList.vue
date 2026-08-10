@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import {addRecipeToFavorites, deleteRecipe, exportRecipe, getRecipe, getRecipes, importRecipe, removeRecipeFromFavorites, type ExportedRecipe, type Recipe} from "../services/recipeService";
 import { getCookbooks, type Cookbook } from "../services/cookbookService";
 import { getStoredToken } from "../utils/authToken";
+import {getErrorMessage} from "../utils/error.ts";
 
 const emit = defineEmits<{
   edit: [recipe: Recipe];
@@ -68,7 +69,7 @@ async function loadCookbookOptions() {
     const response = await getCookbooks(token);
     cookbooks.value = response.cookbooks;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les cookbooks";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les cookbooks")
   }
 }
 
@@ -84,7 +85,7 @@ async function exportCurrentRecipe(recipe: Recipe) {
     const exportedRecipe = await exportRecipe(token, recipe.id);
     downloadJsonFile(buildExportFileName(recipe), exportedRecipe);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'exporter la recette";
+    errorMessage.value = getErrorMessage(error,"Impossible d'exporter la recette")
   }
 }
 
@@ -110,7 +111,7 @@ async function importRecipeFile(event: Event) {
     input.value = "";
     await loadRecipes();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'importer la recette";
+    errorMessage.value = getErrorMessage(error,"Impossible d'importer la recette")
   }
 }
 
@@ -137,7 +138,7 @@ async function loadRecipes() {
 
     recipes.value = response.recipes;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger les recettes")
   } finally {
     isLoading.value = false;
   }
@@ -160,7 +161,7 @@ async function toggleFavorite(recipe: Recipe) {
 
     await loadRecipes();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de modifier le favori";
+    errorMessage.value = getErrorMessage(error,"Impossible de modifier le favori")
   }
 }
 
@@ -176,7 +177,7 @@ async function editRecipe(recipeId: string) {
     const response = await getRecipe(token, recipeId);
     emit("edit", response.recipe);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de charger la recette";
+    errorMessage.value = getErrorMessage(error,"Impossible de charger la recette")
   }
 }
 
@@ -198,7 +199,7 @@ async function removeRecipe(recipe: Recipe) {
     await deleteRecipe(token, recipe.id);
     await loadRecipes();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible de supprimer la recette";
+    errorMessage.value = getErrorMessage(error,"Impossible de supprimer la recette")
   }
 }
 

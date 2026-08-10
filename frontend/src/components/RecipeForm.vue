@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { createRecipe, updateRecipe, type Recipe } from "../services/recipeService";
 import { getStoredToken } from "../utils/authToken";
+import {getErrorMessage} from "../utils/error.ts";
 
 const props = defineProps<{
   recipe?: Recipe | null;
@@ -255,7 +256,7 @@ async function submitRecipe() {
 
     emit("saved");
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Impossible d'enregistrer la recette";
+    errorMessage.value = getErrorMessage(error, "Impossible d'enregistrer la recette")
   } finally {
     isLoading.value = false;
   }

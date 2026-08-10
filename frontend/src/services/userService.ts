@@ -1,6 +1,5 @@
-import { ApiError, type User } from "./authService";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+import {apiRequest, type MessageResponse} from "./apiClient";
+import type {User} from "./authService.ts";
 
 export type UpdatePreferencesPayload = {
     displayName?: string;
@@ -38,26 +37,8 @@ type SecurityResponse = {
     security: UserSecurity;
 };
 
-type MessageResponse = {
-    message: string;
-};
-
-async function request<T>(path: string, options: RequestInit) {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new ApiError(
-            data?.message ?? "Une erreur est survenue",
-            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
-        );
-    }
-
-    return data as T;
-}
-
 export function getUserPreferences(token: string) {
-    return request<UserResponse>("/users/me/preferences", {
+    return apiRequest<UserResponse>("/users/me/preferences", {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -66,7 +47,7 @@ export function getUserPreferences(token: string) {
 }
 
 export function updateUserPreferences(token: string, payload: UpdatePreferencesPayload) {
-    return request<UserResponse>("/users/me/preferences", {
+    return apiRequest<UserResponse>("/users/me/preferences", {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
@@ -77,7 +58,7 @@ export function updateUserPreferences(token: string, payload: UpdatePreferencesP
 }
 
 export function getUserSecurity(token: string) {
-    return request<SecurityResponse>("/users/me/security", {
+    return apiRequest<SecurityResponse>("/users/me/security", {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
@@ -86,7 +67,7 @@ export function getUserSecurity(token: string) {
 }
 
 export function changePassword(token: string, payload: ChangePasswordPayload) {
-    return request<MessageResponse>("/users/me/password", {
+    return apiRequest<MessageResponse>("/users/me/password", {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
@@ -97,7 +78,7 @@ export function changePassword(token: string, payload: ChangePasswordPayload) {
 }
 
 export function changeEmail(token: string, payload: ChangeEmailPayload) {
-    return request<UserResponse & MessageResponse>("/users/me/email", {
+    return apiRequest<UserResponse & MessageResponse>("/users/me/email", {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",

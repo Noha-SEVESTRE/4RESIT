@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+import {API_BASE_URL, apiRequest} from "./apiClient";
 
 export type User = {
     id: string;
@@ -10,43 +10,13 @@ export type User = {
     updatedAt?: string;
 };
 
-export type FieldErrors = Record<string, string[]>;
-
-export class ApiError extends Error {
-    fieldErrors: FieldErrors;
-
-    constructor(message: string, fieldErrors: FieldErrors = {}) {
-        super(message);
-        this.name = "ApiError";
-        this.fieldErrors = fieldErrors;
-    }
-}
-
 type AuthResponse = {
     token: string;
     user: User;
 };
 
-type MeResponse = {
-    user: User;
-};
-
-async function request<T>(path: string, options: RequestInit) {
-    const response = await fetch(`${API_BASE_URL}${path}`, options);
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        throw new ApiError(
-            data?.message ?? "Une erreur est survenue",
-            data?.fieldErrors ?? data?.errors?.fieldErrors ?? {}
-        );
-    }
-
-    return data as T;
-}
-
 export function loginUser(email: string, password: string) {
-    return request<AuthResponse>("/auth/login", {
+    return apiRequest<AuthResponse>("/auth/login", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -59,7 +29,7 @@ export function loginUser(email: string, password: string) {
 }
 
 export function registerUser(displayName: string, email: string, password: string) {
-    return request<AuthResponse>("/auth/register", {
+    return apiRequest<AuthResponse>("/auth/register", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -73,7 +43,7 @@ export function registerUser(displayName: string, email: string, password: strin
 }
 
 export function getCurrentUser(token: string) {
-    return request<MeResponse>("/auth/me", {
+    return apiRequest<AuthResponse>("/auth/me", {
         method: "GET",
         headers: {
             Authorization: `Bearer ${token}`
