@@ -89,7 +89,8 @@ function formatCookbookRecipe(row: any) {
             displayName: row.owner_display_name
         },
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        cookbookId: row.cookbook_id
     };
 }
 
@@ -604,6 +605,7 @@ cookbookRouter.get("/:id/recipes", requireAuth, async (req, res, next) => {
               r.source,
               r.created_at,
               r.updated_at,
+              r.cookbook_id,
               COALESCE(array_agg(DISTINCT rt.name) FILTER (WHERE rt.name IS NOT NULL), '{}') AS tags
        FROM recipes r
        JOIN users u ON u.id = r.owner_id

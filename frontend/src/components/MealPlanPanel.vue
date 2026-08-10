@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { getRecipes, type Recipe } from "../services/recipeService";
 import { createMealPlan, deleteMealPlan, getMealPlans, type MealPlan } from "../services/mealPlanService";
+import { getCookbooks, getCookbookRecipes } from "../services/cookbookService";
 
 const recipes = ref<Recipe[]>([]);
 const mealPlans = ref<MealPlan[]>([]);
@@ -11,8 +12,17 @@ const mealType = ref("dîner");
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
+const shareWithCookbook = ref(false);
 
 const hasMealPlans = computed(() => mealPlans.value.length > 0);
+
+const selectedRecipe = computed(() =>
+    recipes.value.find((recipe) => recipe.id === selectedRecipeId.value)
+);
+
+const canShareWithCookbook = computed(() =>
+    Boolean(selectedRecipe.value?.cookbookId)
+);
 
 function getStoredToken() {
   return (
@@ -44,12 +54,27 @@ async function loadData() {
   errorMessage.value = "";
 
   try {
-    const [recipesResponse, mealPlansResponse] = await Promise.all([
+    const [recipesResponse, cookbooksResponse, mealPlansResponse] = await Promise.all([
       getRecipes(token),
+      getCookbooks(token),
       getMealPlans(token)
     ]);
 
-    recipes.value = recipesResponse.recipes;
+    const cookbookRecipesResponses = await Promise.all(
+        cookbooksResponse.cookbooks.map((cookbook) =>
+            getCookbookRecipes(token, cookbook.id)
+        )
+    );
+
+    const allRecipes = [
+      ...recipesResponse.recipes,
+      ...cookbookRecipesResponses.flatMap((response) => response.recipes)
+    ];
+
+    recipes.value = Array.from(
+        new Map(allRecipes.map((recipe) => [recipe.id, recipe])).values()
+    );
+
     mealPlans.value = mealPlansResponse.mealPlans;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de charger le planning";
@@ -83,12 +108,14 @@ async function submitMealPlan() {
     await createMealPlan(token, {
       recipeId: selectedRecipeId.value,
       plannedDate: plannedDate.value,
-      mealType: mealType.value
+      mealType: mealType.value,
+      shareWithCookbook: canShareWithCookbook.value && shareWithCookbook.value
     });
 
     selectedRecipeId.value = "";
     plannedDate.value = "";
     mealType.value = "dîner";
+    shareWithCookbook.value = false;
 
     await loadData();
   } catch (error) {
@@ -152,6 +179,11 @@ onMounted(loadData);
         <option value="dîner">Dîner</option>
         <option value="collation">Collation</option>
       </select>
+
+      <label v-if="canShareWithCookbook" class="share-planning">
+        <input v-model="shareWithCookbook" type="checkbox">
+        Partager avec le cookbook
+      </label>
 
       <button type="submit" :disabled="isSaving">
         {{ isSaving ? "Ajout..." : "Planifier" }}
@@ -322,5 +354,18 @@ onMounted(loadData);
   .meal-plan-form {
     grid-template-columns: 1fr;
   }
+}
+
+.share-planning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #2f241d;
+}
+
+.share-planning input {
+  width: auto;
+  margin: 0;
 }
 </style>

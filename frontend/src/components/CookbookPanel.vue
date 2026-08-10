@@ -99,7 +99,11 @@ async function loadAvailableRecipes() {
     const currentCookbookRecipeIds = new Set(cookbookRecipes.value.map((recipe) => recipe.id));
 
     personalRecipes.value = response.recipes.filter((recipe) => {
-      return !currentCookbookRecipeIds.has(recipe.id);
+      return (
+          recipe.canManage &&
+          !recipe.cookbookId &&
+          !currentCookbookRecipeIds.has(recipe.id)
+      );
     });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Impossible de charger les recettes disponibles";
