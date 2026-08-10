@@ -21,6 +21,7 @@ export type CreateMealPlanPayload = {
     recipeId: string;
     plannedDate: string;
     mealType: string;
+    shareWithCookbook?: boolean;
 };
 
 type MealPlansResponse = {
