@@ -18,6 +18,7 @@ export type Recipe = {
     isFavorite?: boolean;
     ingredients?: RecipeIngredient[];
     steps?: RecipeStep[];
+    canManage?: boolean;
 };
 
 export type RecipeFilters = {

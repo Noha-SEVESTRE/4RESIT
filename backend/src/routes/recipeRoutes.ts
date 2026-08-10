@@ -63,6 +63,10 @@ function formatRecipe(row: any) {
         recipe.isFavorite = row.is_favorite;
     }
 
+    if (row.can_manage !== undefined) {
+        recipe.canManage = row.can_manage;
+    }
+
     return recipe;
 }
 
@@ -134,7 +138,15 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
 
         const query = listRecipesQuerySchema.parse(req.query);
         const values: unknown[] = [authenticatedRequest.user.userId];
-        const conditions = ["r.owner_id = $1"];
+        const conditions = [
+            `(r.owner_id = $1
+      OR EXISTS (
+        SELECT 1
+        FROM cookbook_members access_members
+        WHERE access_members.cookbook_id = r.cookbook_id
+          AND access_members.user_id = $1
+      ))`
+        ];
         let index = 2;
 
         if (query.cookbookId === "personal") {
@@ -239,6 +251,7 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
 
         const result = await pool.query(
             `SELECT r.id,
+       r.owner_id,
               r.title,
               r.description,
               r.preparation_time,
@@ -250,6 +263,7 @@ recipeRouter.get("/", requireAuth, async (req, res, next) => {
               r.cookbook_id,
               r.updated_at,
               COALESCE(array_agg(DISTINCT rt.name) FILTER (WHERE rt.name IS NOT NULL), '{}') AS tags,
+              (r.owner_id = $1) AS can_manage,
               EXISTS (
                 SELECT 1
                 FROM recipe_favorites rf
@@ -534,7 +548,18 @@ recipeRouter.get("/favorites", requireAuth, async (req, res, next) => {
         }
 
         const result = await pool.query(
-            `SELECT r.id, r.title, r.description, r.preparation_time, r.cooking_time, r.portions, r.image_url, r.source, r.cookbook_id, r.created_at, r.updated_at
+            `SELECT r.id,
+                r.owner_id,
+                r.title, 
+                r.description, 
+                r.preparation_time, 
+                r.cooking_time, 
+                r.portions, 
+                r.image_url, 
+                r.source, 
+                r.cookbook_id, 
+                r.created_at, 
+                r.updated_at
        FROM recipe_favorites rf
        JOIN recipes r ON r.id = rf.recipe_id
        WHERE rf.user_id = $1
@@ -563,9 +588,18 @@ recipeRouter.post("/:id/favorite", requireAuth, async (req, res, next) => {
         const params = recipeParamsSchema.parse(req.params);
 
         const recipeResult = await pool.query(
-            `SELECT id
-       FROM recipes
-       WHERE id = $1 AND owner_id = $2`,
+            `SELECT r.id
+             FROM recipes r
+             WHERE r.id = $1
+               AND (
+                 r.owner_id = $2
+                     OR EXISTS (
+                     SELECT 1
+                     FROM cookbook_members cm
+                     WHERE cm.cookbook_id = r.cookbook_id
+                       AND cm.user_id = $2
+                 )
+                 )`,
             [params.id, authenticatedRequest.user.userId]
         );
 

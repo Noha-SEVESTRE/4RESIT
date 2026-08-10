@@ -64,6 +64,14 @@ function openImportFile() {
   importInput.value?.click();
 }
 
+function getCookbookName(cookbookId: string | null) {
+  if (!cookbookId) {
+    return "";
+  }
+
+  return cookbooks.value.find((cookbook) => cookbook.id === cookbookId)?.name ?? "";
+}
+
 function openRecipeDetails(recipeId: string) {
   window.open(`${window.location.origin}/?recipeId=${recipeId}`, "_blank", "noopener,noreferrer");
 }
@@ -323,6 +331,10 @@ onMounted(async () => {
           </button>
         </div>
 
+        <p v-if="recipe.cookbookId && !recipe.canManage" class="recipe-cookbook">
+          Recette venant du cookbook : {{ getCookbookName(recipe.cookbookId) }}
+        </p>
+
         <p class="recipe-description">
           {{ recipe.description || "Aucune description" }}
         </p>
@@ -344,15 +356,15 @@ onMounted(async () => {
             Voir détails
           </button>
 
-          <button type="button" @click.stop="exportCurrentRecipe(recipe)">
+          <button v-if="recipe.canManage" type="button" @click.stop="exportCurrentRecipe(recipe)">
             Exporter
           </button>
 
-          <button type="button" @click.stop="editRecipe(recipe.id)">
+          <button v-if="recipe.canManage" type="button" @click.stop="editRecipe(recipe.id)">
             Modifier
           </button>
 
-          <button class="danger-button" type="button" @click.stop="removeRecipe(recipe)">
+          <button v-if="recipe.canManage" class="danger-button" type="button" @click.stop="removeRecipe(recipe)">
             Supprimer
           </button>
         </div>
@@ -667,5 +679,12 @@ onMounted(async () => {
 .recipe-card:focus-visible {
   outline: 3px solid rgba(217, 119, 6, 0.25);
   outline-offset: 3px;
+}
+
+.recipe-cookbook {
+  margin: -4px 0 0;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 800;
 }
 </style>
