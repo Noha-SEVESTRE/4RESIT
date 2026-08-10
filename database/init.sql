@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE users (
                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -117,3 +118,18 @@ CREATE INDEX idx_recipe_tags_name ON recipe_tags(name);
 CREATE INDEX idx_meal_plans_user_date ON meal_plans(user_id, planned_date);
 CREATE INDEX idx_recipe_comments_recipe_id ON recipe_comments(recipe_id);
 CREATE INDEX idx_cookbook_messages_cookbook_id ON cookbook_messages(cookbook_id);
+
+CREATE INDEX idx_recipes_title_trgm
+    ON recipes USING gin (title gin_trgm_ops);
+
+CREATE INDEX idx_recipes_description_trgm
+    ON recipes USING gin (description gin_trgm_ops);
+
+CREATE INDEX idx_recipe_ingredients_name_trgm
+    ON recipe_ingredients USING gin (name gin_trgm_ops);
+
+CREATE INDEX idx_recipe_tags_name_trgm
+    ON recipe_tags USING gin (name gin_trgm_ops);
+
+CREATE INDEX idx_recipe_steps_instruction_trgm
+    ON recipe_steps USING gin (instruction gin_trgm_ops);
