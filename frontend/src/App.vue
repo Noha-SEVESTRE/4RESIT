@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { getCurrentUser, loginUser, registerUser, startGitHubLogin, startGoogleLogin, type User } from "./services/authService";
+import { getCurrentUser,  loginUser,  registerUser,  requestPasswordReset,  resetPassword,  startGitHubLogin,  startGoogleLogin,  type User} from "./services/authService";
 import { ApiError, type FieldErrors} from "./services/apiClient";
 import RecipeList from "./components/RecipeList.vue";
 import RecipeForm from "./components/RecipeForm.vue";
@@ -11,9 +11,10 @@ import CookbookPanel from "./components/CookbookPanel.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { getStrongPasswordError } from "./utils/passwordValidation";
 import { getStoredToken, setStoredToken, clearStoredToken} from "./utils/authToken";
+import LegalPage from "./components/LegalPage.vue";
 
-type ViewName = "login" | "register" | "dashboard";
-type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings";
+type ViewName = "login" | "register" | "forgot-password" | "reset-password" | "dashboard";
+type PageName = "dashboard" | "recipes" | "planning" | "cookbooks" | "settings" | "privacy" | "terms";
 type FormErrors = Record<string, string>;
 
 const routeRecipeId = ref(new URLSearchParams(window.location.search).get("recipeId"));
@@ -41,6 +42,25 @@ const registerForm = ref({
   password: "",
   passwordConfirmation: ""
 });
+
+const forgotPasswordForm = ref({
+  email: ""
+});
+
+const resetPasswordForm = ref({
+  password: "",
+  passwordConfirmation: ""
+});
+
+const resetToken = ref("");
+
+const generatedResetUrl = ref("");
+
+const forgotPasswordErrors =
+    ref<FormErrors>({});
+
+const resetPasswordErrors =
+    ref<FormErrors>({});
 
 const stats = [
   {
@@ -77,6 +97,14 @@ const pageTitle = computed(() => {
     return "Cookbooks partagés";
   }
 
+  if (currentPage.value === "privacy") {
+    return "Politique de confidentialité";
+  }
+
+  if (currentPage.value === "terms") {
+    return "Conditions d'utilisation";
+  }
+
   return "Paramètres";
 });
 
@@ -97,14 +125,27 @@ const pageDescription = computed(() => {
     return "Gérez vos cookbooks, leurs membres et les recettes partagées.";
   }
 
+  if (currentPage.value === "privacy") {
+    return "Consultez les informations relatives aux données utilisées par SUPMEAL.";
+  }
+
+  if (currentPage.value === "terms") {
+    return "Consultez les règles d'utilisation de SUPMEAL.";
+  }
+
   return "Gérez les préférences de votre compte.";
 });
 
 function resetMessages() {
   errorMessage.value = "";
   infoMessage.value = "";
+
   loginErrors.value = {};
   registerErrors.value = {};
+  forgotPasswordErrors.value = {};
+  resetPasswordErrors.value = {};
+
+  generatedResetUrl.value = "";
 }
 
 function saveSession(nextToken: string, user: User) {
@@ -123,6 +164,65 @@ function goToLogin() {
 function goToRegister() {
   resetMessages();
   currentView.value = "register";
+}
+
+function goToForgotPassword() {
+  resetMessages();
+  forgotPasswordForm.value.email =
+      loginForm.value.email.trim();
+
+  currentView.value = "forgot-password";
+}
+
+function validateForgotPassword() {
+  const errors: FormErrors = {};
+
+  const email =
+      forgotPasswordForm.value.email.trim();
+
+  if (!email) {
+    errors.email =
+        "L'adresse email est obligatoire";
+  } else if (!isValidEmail(email)) {
+    errors.email =
+        "L'adresse email n'est pas valide";
+  }
+
+  forgotPasswordErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
+}
+
+function validateResetPassword() {
+  const errors: FormErrors = {};
+
+  const passwordError =
+      getStrongPasswordError(
+          resetPasswordForm.value.password,
+          "Le nouveau mot de passe"
+      );
+
+  if (passwordError) {
+    errors.password = passwordError;
+  }
+
+  if (
+      !resetPasswordForm.value
+          .passwordConfirmation
+  ) {
+    errors.passwordConfirmation =
+        "La confirmation du mot de passe est obligatoire";
+  } else if (
+      resetPasswordForm.value.password !==
+      resetPasswordForm.value.passwordConfirmation
+  ) {
+    errors.passwordConfirmation =
+        "Les mots de passe ne correspondent pas";
+  }
+
+  resetPasswordErrors.value = errors;
+
+  return Object.keys(errors).length === 0;
 }
 
 function logout() {
@@ -295,10 +395,118 @@ async function submitRegister() {
   }
 }
 
+async function submitForgotPassword() {
+  try {
+    resetMessages();
+
+    if (!validateForgotPassword()) {
+      return;
+    }
+
+    isLoading.value = true;
+
+    const response =
+        await requestPasswordReset(
+            forgotPasswordForm.value.email.trim()
+        );
+
+    infoMessage.value =
+        response.message;
+    generatedResetUrl.value =
+        response.resetUrl ?? "";
+  } catch (error) {
+    if (error instanceof ApiError) {
+      applyFieldErrors(
+          forgotPasswordErrors,
+          error.fieldErrors
+      );
+
+      if (
+          !Object.keys(error.fieldErrors).length
+      ) {
+        errorMessage.value =
+            error.message;
+      }
+    } else {
+      errorMessage.value =
+          "Impossible de demander une réinitialisation pour le moment";
+    }
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function submitResetPassword() {
+  try {
+    resetMessages();
+
+    if (!validateResetPassword()) {
+      return;
+    }
+
+    if (!resetToken.value) {
+      errorMessage.value =
+          "Le lien de réinitialisation est invalide";
+
+      return;
+    }
+
+    isLoading.value = true;
+
+    const response =
+        await resetPassword(
+            resetToken.value,
+            resetPasswordForm.value.password,
+            resetPasswordForm.value
+                .passwordConfirmation
+        );
+
+    goToLogin();
+
+    infoMessage.value =
+        response.message;
+    window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+    );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      applyFieldErrors(
+          resetPasswordErrors,
+          error.fieldErrors
+      );
+
+      if (
+          !Object.keys(error.fieldErrors).length
+      ) {
+        errorMessage.value =
+            error.message;
+      }
+    } else {
+      errorMessage.value =
+          "Impossible de réinitialiser le mot de passe";
+    }
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search);
   const oauthToken = params.get("token");
   const oauthStatus = params.get("oauth");
+  const passwordResetToken = params.get("resetToken");
+
+  if (passwordResetToken) {
+    resetToken.value =
+        passwordResetToken;
+
+    currentView.value =
+        "reset-password";
+
+    return;
+  }
 
   if (oauthStatus === "missing_email") {
     errorMessage.value = "Votre compte GitHub ne fournit pas d'adresse email vérifiée.";
@@ -368,6 +576,14 @@ onMounted(async () => {
           <span v-if="loginErrors.password" class="field-error">{{ loginErrors.password }}</span>
         </label>
 
+        <button
+            class="forgot-password-link"
+            type="button"
+            @click="goToForgotPassword"
+        >
+          Mot de passe oublié ?
+        </button>
+
         <p v-if="errorMessage" class="auth-error">{{ errorMessage }}</p>
         <p v-if="infoMessage" class="auth-info">{{ infoMessage }}</p>
 
@@ -396,6 +612,206 @@ onMounted(async () => {
       <p class="auth-switch">
         Pas encore de compte ?
         <button type="button" @click="goToRegister">Créer un compte</button>
+      </p>
+    </section>
+  </main>
+
+  <main
+      v-else-if="currentView === 'forgot-password'"
+      class="auth-page"
+  >
+    <section class="auth-card">
+      <div>
+        <p class="eyebrow">
+          SUPMEAL Pro
+        </p>
+
+        <h1>
+          Mot de passe oublié
+        </h1>
+
+        <p class="auth-description">
+          Saisissez l'adresse email de votre compte local
+          pour générer un lien de réinitialisation valable
+          30 minutes.
+        </p>
+      </div>
+
+      <form
+          class="auth-form"
+          @submit.prevent="submitForgotPassword"
+      >
+        <label>
+          Email
+
+          <input
+              v-model="forgotPasswordForm.email"
+              :class="{
+            'input-error':
+              forgotPasswordErrors.email
+          }"
+              type="email"
+              placeholder="user@gmail.com"
+          >
+
+          <span
+              v-if="forgotPasswordErrors.email"
+              class="field-error"
+          >
+          {{ forgotPasswordErrors.email }}
+        </span>
+        </label>
+
+        <p
+            v-if="errorMessage"
+            class="auth-error"
+        >
+          {{ errorMessage }}
+        </p>
+
+        <p
+            v-if="infoMessage"
+            class="auth-info"
+        >
+          {{ infoMessage }}
+        </p>
+
+        <a
+            v-if="generatedResetUrl"
+            class="reset-demo-link"
+            :href="generatedResetUrl"
+        >
+          Ouvrir le lien de réinitialisation
+        </a>
+
+        <button
+            type="submit"
+            :disabled="isLoading"
+        >
+          {{
+            isLoading
+                ? "Génération..."
+                : "Réinitialiser mon mot de passe"
+          }}
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        Retour à la connexion
+
+        <button
+            type="button"
+            @click="goToLogin"
+        >
+          Se connecter
+        </button>
+      </p>
+    </section>
+  </main>
+
+  <main
+      v-else-if="currentView === 'reset-password'"
+      class="auth-page"
+  >
+    <section class="auth-card">
+      <div>
+        <p class="eyebrow">
+          SUPMEAL Pro
+        </p>
+
+        <h1>
+          Nouveau mot de passe
+        </h1>
+
+        <p class="auth-description">
+          Choisissez un nouveau mot de passe pour
+          votre compte SUPMEAL.
+        </p>
+      </div>
+
+      <form
+          class="auth-form"
+          @submit.prevent="submitResetPassword"
+      >
+        <label>
+          Nouveau mot de passe
+
+          <input
+              v-model="resetPasswordForm.password"
+              :class="{
+            'input-error':
+              resetPasswordErrors.password
+          }"
+              type="password"
+              placeholder="8 caractères, majuscule, chiffre et spécial"
+          >
+
+          <span
+              v-if="resetPasswordErrors.password"
+              class="field-error"
+          >
+          {{ resetPasswordErrors.password }}
+        </span>
+        </label>
+
+        <label>
+          Confirmation du mot de passe
+
+          <input
+              v-model="
+            resetPasswordForm.passwordConfirmation
+          "
+              :class="{
+            'input-error':
+              resetPasswordErrors
+                .passwordConfirmation
+          }"
+              type="password"
+              placeholder="Confirmez le nouveau mot de passe"
+          >
+
+          <span
+              v-if="
+            resetPasswordErrors
+              .passwordConfirmation
+          "
+              class="field-error"
+          >
+          {{
+              resetPasswordErrors
+                  .passwordConfirmation
+            }}
+        </span>
+        </label>
+
+        <p
+            v-if="errorMessage"
+            class="auth-error"
+        >
+          {{ errorMessage }}
+        </p>
+
+        <button
+            type="submit"
+            :disabled="isLoading"
+        >
+          {{
+            isLoading
+                ? "Réinitialisation..."
+                : "Enregistrer le nouveau mot de passe"
+          }}
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        Retour à la connexion
+
+        <button
+            type="button"
+            @click="goToLogin"
+        >
+          Se connecter
+        </button>
       </p>
     </section>
   </main>
@@ -476,7 +892,7 @@ onMounted(async () => {
           Planning
         </a>
 
-        <a href="#" :class="{ active: currentPage === 'settings' }" @click.prevent="setCurrentPage('settings')">
+        <a href="#" :class="{active:currentPage === 'settings' || currentPage === 'privacy' || currentPage === 'terms'}" @click.prevent="setCurrentPage('settings')">
           Paramètres
         </a>
       </nav>
@@ -597,8 +1013,12 @@ onMounted(async () => {
         <CookbookPanel :key="recipeListKey" />
       </section>
 
-      <section v-else class="page-section">
-        <SettingsPanel @updated="handleUserUpdated" />
+      <section v-else-if="currentPage === 'settings'" class="page-section">
+        <SettingsPanel @updated="handleUserUpdated" @open-legal="setCurrentPage" />
+      </section>
+
+      <section v-else-if="currentPage === 'privacy' || currentPage === 'terms'" class="page-section">
+        <LegalPage :type="currentPage === 'privacy' ? 'privacy' : 'terms'" @back="setCurrentPage('settings')" />
       </section>
     </main>
   </div>

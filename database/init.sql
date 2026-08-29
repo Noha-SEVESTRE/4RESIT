@@ -14,6 +14,15 @@ CREATE TABLE users (
                        updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
+CREATE TABLE password_reset_tokens (
+                                       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                                       token_hash VARCHAR(64) NOT NULL UNIQUE,
+                                       expires_at TIMESTAMP NOT NULL,
+                                       used_at TIMESTAMP,
+                                       created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
 CREATE TABLE oauth_accounts (
                                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                                 user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -118,6 +127,8 @@ CREATE INDEX idx_recipe_tags_name ON recipe_tags(name);
 CREATE INDEX idx_meal_plans_user_date ON meal_plans(user_id, planned_date);
 CREATE INDEX idx_recipe_comments_recipe_id ON recipe_comments(recipe_id);
 CREATE INDEX idx_cookbook_messages_cookbook_id ON cookbook_messages(cookbook_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
 
 CREATE INDEX idx_recipes_title_trgm
     ON recipes USING gin (title gin_trgm_ops);

@@ -58,3 +58,38 @@ export function startGitHubLogin() {
 export function startGoogleLogin() {
     window.location.href = `${API_BASE_URL}/auth/google`;
 }
+
+export type ForgotPasswordResponse = {
+    message: string;
+    resetUrl?: string;
+};
+
+export function requestPasswordReset(email: string) {
+    return apiRequest<ForgotPasswordResponse>(
+        "/auth/forgot-password",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                email
+            })
+        }
+    );
+}
+
+export function resetPassword(
+    token: string,
+    newPassword: string,
+    newPasswordConfirmation: string
+) {
+    return apiRequest<{ message: string }>(
+        "/auth/reset-password",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                token,
+                newPassword,
+                newPasswordConfirmation
+            })
+        }
+    );
+}
