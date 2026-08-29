@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "../utils/password";
 import { createToken } from "../utils/token";
 import { createStrongPasswordSchema } from "../utils/passwordValidation";
 import { formatUser } from "../utils/userFormatter";
+import { createHash, randomBytes } from "crypto";
 
 export const authRouter = Router();
 
@@ -36,6 +37,35 @@ const loginSchema = z.object({
         .max(120, "Le mot de passe est trop long")
 });
 
+const forgotPasswordSchema = z.object({
+    email: z.string()
+        .trim()
+        .min(1, "L'adresse email est obligatoire")
+        .email("L'adresse email n'est pas valide")
+        .max(255, "L'adresse email est trop longue")
+        .transform((value) => value.toLowerCase())
+});
+
+const resetPasswordSchema = z.object({
+    token: z.string()
+        .trim()
+        .min(1, "Le jeton de réinitialisation est obligatoire"),
+
+    newPassword: createStrongPasswordSchema(
+        "Le nouveau mot de passe"
+    ),
+
+    newPasswordConfirmation: z.string()
+        .min(1, "La confirmation du mot de passe est obligatoire")
+}).refine(
+    (data) =>
+        data.newPassword === data.newPasswordConfirmation,
+    {
+        message: "Les mots de passe ne correspondent pas",
+        path: ["newPasswordConfirmation"]
+    }
+);
+
 function formatValidationError(error: z.ZodError) {
     return {
         message: "Certains champs sont invalides",
@@ -61,6 +91,14 @@ function getRemainingLockMinutes(lockedUntil: string | Date | null) {
     const remainingMilliseconds = new Date(lockedUntil).getTime() - Date.now();
 
     return Math.max(1, Math.ceil(remainingMilliseconds / 60000));
+}
+
+const PASSWORD_RESET_TTL_MINUTES = 30;
+
+function hashResetToken(token: string) {
+    return createHash("sha256")
+        .update(token)
+        .digest("hex");
 }
 
 authRouter.post("/register", async (req, res, next) => {
@@ -216,6 +254,199 @@ authRouter.post("/login", async (req, res, next) => {
         }
 
         return next(error);
+    }
+});
+
+authRouter.post("/forgot-password", async (req, res, next) => {
+    try {
+        const data = forgotPasswordSchema.parse(req.body);
+
+        const userResult = await pool.query(
+            `SELECT id, password_hash
+             FROM users
+             WHERE email = $1`,
+            [data.email]
+        );
+
+        const user = userResult.rows[0];
+
+        let resetUrl: string | undefined;
+
+        /*
+         * On ne génère un token que pour les comptes locaux.
+         * Un compte uniquement OAuth possède password_hash = NULL.
+         */
+        if (user?.password_hash) {
+            const rawToken = randomBytes(32).toString("hex");
+
+            const tokenHash = hashResetToken(rawToken);
+
+            /*
+             * On supprime les anciens tokens de cet utilisateur
+             * ainsi que les tokens déjà expirés.
+             */
+            await pool.query(
+                `DELETE FROM password_reset_tokens
+                 WHERE user_id = $1
+                    OR expires_at < now()`,
+                [user.id]
+            );
+
+            await pool.query(
+                `INSERT INTO password_reset_tokens (
+                    user_id,
+                    token_hash,
+                    expires_at
+                 )
+                 VALUES (
+                    $1,
+                    $2,
+                    now() + ($3::int * interval '1 minute')
+                 )`,
+                [
+                    user.id,
+                    tokenHash,
+                    PASSWORD_RESET_TTL_MINUTES
+                ]
+            );
+
+            const frontendUrl =
+                process.env.FRONTEND_URL ??
+                "http://localhost:8081";
+
+            resetUrl =
+                `${frontendUrl}/?resetToken=${encodeURIComponent(rawToken)}`;
+
+            /*
+             * Pour les tests locaux uniquement.
+             * Le token n'est pas retourné en production.
+             */
+            if (process.env.NODE_ENV !== "production") {
+                console.log(
+                    `[SUPMEAL] Lien de réinitialisation : ${resetUrl}`
+                );
+            }
+        }
+
+        /*
+         * Même réponse si l'adresse n'existe pas afin
+         * de ne pas permettre de savoir quels emails
+         * possèdent un compte SUPMEAL.
+         */
+        return res.status(200).json({
+            message:
+                "Si un compte local correspond à cette adresse, un lien de réinitialisation a été généré.",
+
+            ...(process.env.NODE_ENV !== "production" &&
+            resetUrl
+                ? { resetUrl }
+                : {})
+        });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json(
+                formatValidationError(error)
+            );
+        }
+
+        return next(error);
+    }
+});
+
+authRouter.post("/reset-password", async (req, res, next) => {
+    const client = await pool.connect();
+
+    try {
+        const data = resetPasswordSchema.parse(req.body);
+
+        const tokenHash = hashResetToken(data.token);
+
+        await client.query("BEGIN");
+
+        const tokenResult = await client.query(
+            `SELECT
+                prt.id,
+                prt.user_id
+             FROM password_reset_tokens prt
+             JOIN users u
+               ON u.id = prt.user_id
+             WHERE prt.token_hash = $1
+               AND prt.used_at IS NULL
+               AND prt.expires_at > now()
+               AND u.password_hash IS NOT NULL
+             FOR UPDATE`,
+            [tokenHash]
+        );
+
+        const resetToken = tokenResult.rows[0];
+
+        if (!resetToken) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message:
+                    "Ce lien de réinitialisation est invalide ou a expiré"
+            });
+        }
+
+        const passwordHash =
+            await hashPassword(data.newPassword);
+
+        await client.query(
+            `UPDATE users
+             SET password_hash = $1,
+                 failed_login_attempts = 0,
+                 locked_until = NULL,
+                 updated_at = now()
+             WHERE id = $2`,
+            [
+                passwordHash,
+                resetToken.user_id
+            ]
+        );
+
+        /*
+         * Le token devient inutilisable après usage.
+         */
+        await client.query(
+            `UPDATE password_reset_tokens
+             SET used_at = now()
+             WHERE id = $1`,
+            [resetToken.id]
+        );
+
+        /*
+         * Suppression des éventuels autres tokens
+         * de l'utilisateur.
+         */
+        await client.query(
+            `DELETE FROM password_reset_tokens
+             WHERE user_id = $1
+               AND id <> $2`,
+            [
+                resetToken.user_id,
+                resetToken.id
+            ]
+        );
+
+        await client.query("COMMIT");
+
+        return res.status(200).json({
+            message:
+                "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter."
+        });
+    } catch (error) {
+        await client.query("ROLLBACK");
+
+        if (error instanceof z.ZodError) {
+            return res.status(400).json(
+                formatValidationError(error)
+            );
+        }
+
+        return next(error);
+    } finally {
+        client.release();
     }
 });
 

@@ -10,6 +10,10 @@ import {getErrorMessage} from "../utils/error.ts";
 
 const emit = defineEmits<{
   updated: [user: User];
+
+  openLegal: [
+    page: "privacy" | "terms"
+  ];
 }>();
 
 type FormErrors = Record<string, string>;
@@ -397,6 +401,51 @@ onMounted(loadSettings);
 
       <section class="settings-card">
         <div>
+          <p class="section-label">
+            Informations légales
+          </p>
+
+          <h3>
+            Confidentialité et utilisation
+          </h3>
+        </div>
+
+        <p class="settings-info">
+          Consultez les informations relatives à vos
+          données et aux règles d'utilisation de SUPMEAL.
+        </p>
+
+        <div class="legal-actions">
+          <button
+              class="secondary-button"
+              type="button"
+              @click="
+        emit(
+          'openLegal',
+          'privacy'
+        )
+      "
+          >
+            Politique de confidentialité
+          </button>
+
+          <button
+              class="secondary-button"
+              type="button"
+              @click="
+        emit(
+          'openLegal',
+          'terms'
+        )
+      "
+          >
+            Conditions d'utilisation
+          </button>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <div>
           <p class="section-label">Préférences culinaires</p>
           <h3>Profil utilisateur</h3>
         </div>
@@ -612,5 +661,11 @@ onMounted(loadSettings);
   :deep(.data-panel) {
     padding: 20px;
   }
+}
+
+.legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 </style>
